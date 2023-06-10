@@ -22,9 +22,11 @@
 
 #pragma once
 
+#include "hello_imgui/hello_imgui.h"
 #include <spdlog/spdlog.h>
 #include <libasi/ASICamera2.h>
 #include "asi_base.hpp"
+#include <thread>
 
 #include <map>
 
@@ -38,6 +40,31 @@ class ASICCD : public ASIBase
           mCameraName = cameraName;
 
         };
+        void DoVCaptureHelper(size_t _size = 1*1024)
+        {
+          max_buffer_size = _size;
+          std::thread(&ASICCD::SDoVCapture, this).detach();
+          HelloImGui::Log(HelloImGui::LogLevel::Debug,
+                          "DoVideoCapture command issued %d.", max_buffer_size);
+        }
+        void DoCaptureHelper()
+        {
+          std::thread(&ASICCD::SDoCapture, this).detach();
+          HelloImGui::Log(HelloImGui::LogLevel::Debug,
+                          "DoCapture command issued.");
+        }
+        static void SDoCapture(ASICCD* ccd)
+        {
+          spdlog::debug("SDoStatic started");
+          ccd->DoCapture();
+        }
+        static void SDoVCapture(ASICCD* ccd)
+        {
+          HelloImGui::Log(HelloImGui::LogLevel::Debug,
+                          "DoVideoCapture command issued %d.", ccd->max_buffer_size);
+          spdlog::debug("SDoVCapture started: %d", ccd->max_buffer_size);
+          ccd->DoVideoCapture();
+        }
 };
 static class Loader
 {

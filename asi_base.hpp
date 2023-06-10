@@ -38,6 +38,7 @@
 
 #include "asi_helpers.hpp"
 #include "circular_buffer.hpp"
+#include "hello_imgui/hello_imgui.h"
 #include "timer.hpp"
 typedef struct _ASI_CONTROL_CAPS_CAST {
   char Name[64];          // the name of the Control like Exposure, Gain etc..
@@ -287,11 +288,12 @@ class ASIBase {
     spdlog::debug("Exposure Updated to {} ms", mExposureCap->current_value);
     return true;
   }
-  bool DoVideoCapture(size_t max_buffer_size = 1*1024) {
-    max_buffer_size = max_buffer_size*1024*1024;
+  bool DoVideoCapture() {
     if (is_running) {
       spdlog::debug("camera is busy IsRunning: {} IsStill: {}", is_running,
                     is_still);
+      HelloImGui::Log(HelloImGui::LogLevel::Error,
+                          "camera is busy");
       return false;
     }
     if (!SetCCDROI()) return false;
@@ -304,7 +306,9 @@ class ASIBase {
       spdlog::critical("Failed to start video capture {}",
                        ASIHelpers::toString(ret));
     }
-    spdlog::info("Started video capture");
+    spdlog::info("Started video capture {} MB", max_buffer_size);
+    HelloImGui::Log(HelloImGui::LogLevel::Debug,
+                          "Started video capture");
 
     timer.Start();
     escaped.Start();
@@ -318,7 +322,7 @@ class ASIBase {
 
     m_circular_buffer.reset();
     m_circular_buffer = std::make_shared<Circular_Buffer<uint8_t>>(
-        max_buffer_size / nTotalBytes, nTotalBytes);
+        max_buffer_size *1024*1024/ nTotalBytes, nTotalBytes);
 
     while (true) {
       if (do_abort) {
@@ -333,7 +337,8 @@ class ASIBase {
       ASIGetDroppedFrames(mCameraID, &droppedcount);
       m_dropped_frames = droppedcount;
       if (timer.Finish() > 1000) {
-        m_fps = count * 1000 / timer.Finish();
+        m_fps = float(count) * 1000. / float(timer.Finish());
+        m_vc_escape = escaped.Finish();
         timer.Start();
         spdlog::debug("Capturing at {} fps. Dropped frame {}", m_fps, m_dropped_frames);
         count = 0;
@@ -375,10 +380,14 @@ class ASIBase {
     if (is_running) {
       spdlog::debug("camera is busy IsRunning: {} IsStill: {}", is_running,
                     is_still);
+      HelloImGui::Log(HelloImGui::LogLevel::Error,
+                          "camera is busy");
       return false;
     }
     int32_t expo_ms = mExposureCap->current_value;
 
+      HelloImGui::Log(HelloImGui::LogLevel::Debug,
+                          "Starting %d msec exposure...", expo_ms);
     spdlog::debug("Starting {} msec exposure...", expo_ms);
     if (!SetCCDROI()) return false;
     if (!UpdateExposure()) return false;
@@ -612,6 +621,7 @@ class ASIBase {
 
  public:
   std::string mCameraName;
+  size_t max_buffer_size = 512;
   uint32_t mCameraID;
   ASI_CAMERA_INFO mCameraInfo;
   uint8_t mExposureRetry{0};
@@ -623,8 +633,9 @@ class ASIBase {
   std::atomic_bool is_still;
   std::atomic_bool do_abort;
   std::atomic_uint32_t m_dropped_frames;
-  std::atomic_uint32_t m_fps;
-  std::atomic_uint64_t m_expo_escape;
+  std::atomic<float> m_fps;
+  std::atomic_uint32_t m_vc_escape;
+  std::atomic_uint32_t m_expo_escape;
 
   std::array<uint8_t, 2> m_bin;
   std::array<uint16_t, 4> m_frame;
