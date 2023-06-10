@@ -22,7 +22,6 @@ class Circular_Buffer {
   std::atomic<std::size_t>  head = 0;              // size_t is an unsigned long
   std::atomic<std::size_t>  tail = 0;
   std::atomic<std::size_t>  m_ltail = 0;
-  std::atomic<float>   fullness = 0;
   const size_t max_size;
   const size_t n_bytes;
   bool is_done = true;
@@ -87,7 +86,7 @@ class Circular_Buffer {
   }
   void move_trail()
   {
-    if (is_done)
+    if (!is_done)
     {
       is_done = true;
       head = (head + 1) % max_size;
@@ -99,10 +98,10 @@ class Circular_Buffer {
   T* last() { return &buffer[m_ltail * n_bytes]; }
 
   // Return true if this circular buffer is empty, and false otherwise.
-  bool is_empty() { return head == tail; }
+  bool is_empty() { return occupancy() == 0; }
 
   // Return true if this circular buffer is full, and false otherwise.
-  bool is_full() { return tail == (head - 1) % max_size; }
+  bool is_full() { return  occupancy() == max_size - 1;}
 
   // Return the size of this circular buffer.
   std::array<size_t,2> get_head_tail() {
@@ -117,9 +116,9 @@ class Circular_Buffer {
     if (tail >= head) return tail - head;
     return max_size - head + tail;
   }
-  void update_fullness()
+  float update_fullness()
   {
-    fullness = occupancy()/max_size;
+    return float(occupancy())/float(max_size);
   }
 };
 
