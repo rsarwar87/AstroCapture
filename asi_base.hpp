@@ -144,6 +144,11 @@ class ASIBase {
       auto ret =
           SetControlValue(rcap->ControlType, rcap->current_value,
                           rcap->IsAutoSupported ? rcap->current_isauto : false);
+      if (cap.ControlType == ASI_EXPOSURE) {
+        ret =
+            SetControlValue(rcap->ControlType, rcap->current_value * 1000,
+                            rcap->IsAutoSupported ? rcap->current_isauto : false);
+      }
       if (ret != ASI_SUCCESS) {
         spdlog::critical("Failed to set value for {} ({}).", rcap->Name,
                          ASIHelpers::toString(ret));
@@ -154,7 +159,7 @@ class ASIBase {
     spdlog::info("Successfully update controls for {}...", mCameraName);
     return true;
   }
-  bool RetrieveControls() {
+  bool RetrieveControls(bool is_create = false) {
     spdlog::info("Attempting to retrieve controls for {}...", mCameraName);
     for (auto &cap : mControlCaps) {
       if (cap.IsWritable == ASI_FALSE) continue;
@@ -170,8 +175,8 @@ class ASIBase {
       }
       if (cap.ControlType == ASI_EXPOSURE) {
         mExposureCap = rcap;
-        mExposureCap->MinValue /= 1000.0;
-        mExposureCap->MaxValue /= 1000.0;
+        if (is_create) mExposureCap->MinValue /= 1000.0;
+        if (is_create) mExposureCap->MaxValue /= 1000.0;
         mExposureCap->Description[14] = 'm';
         mExposureCap->current_value = mExposureCap->current_value / 1000.0;
       }
@@ -366,7 +371,7 @@ class ASIBase {
 
     return true;
   }
-  bool DoCapture(/*bool subs_dark,*/ bool is_dark = false, size_t retry = 3) {
+  bool DoCapture(/*boo subs_dark,*/ bool is_dark = false, size_t retry = 3) {
     if (is_running) {
       spdlog::debug("camera is busy IsRunning: {} IsStill: {}", is_running,
                     is_still);
