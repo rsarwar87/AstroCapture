@@ -13,6 +13,8 @@
 #include "asi_ccd.hpp"
 #include "hello_imgui/hello_imgui.h"
 
+#include <opencv2/core/core.hpp>
+
 class CameraWindow {
  public:
   CameraWindow() : camcurrent(0) {
@@ -120,6 +122,11 @@ class CameraWindow {
         guiControl();
     }
     if (camera->is_connected) {
+      if (ImGui::CollapsingHeader("Camera Resolution Control",
+                                  ImGuiTreeNodeFlags_DefaultOpen))
+        guiResolution();
+    }
+    if (camera->is_connected) {
       if (ImGui::CollapsingHeader(ICON_FA_WRENCH "Configuration",
                                   ImGuiTreeNodeFlags_DefaultOpen))
         guiAcquisition();
@@ -175,10 +182,46 @@ class CameraWindow {
       }
     }
 
-    static int width = 0, height = 0, bin = 0, fmt = 0;
     // const char **items_fmt = reinterpret_cast<const char
     // **>(camera->m_supportedFormat_str.data()) ;
+    if (camera->is_connected) {
+      if (ImGui::Button(ICON_FA_THUMBS_UP " Apply Settings")) {
+        if (!camera->UpdateControls())
+          HelloImGui::Log(HelloImGui::LogLevel::Error,
+                          "Failed to update settings.");
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(ICON_FA_THUMBS_DOWN " Revert Settings")) {
+        if (!camera->RetrieveControls())
+          HelloImGui::Log(HelloImGui::LogLevel::Error,
+                          "Failed to update settings.");
+      }
+    }
+  }
+  void guiResolution() {
+    ImGui::Text("Current Resolution {binned}: %dx%d",
+                camera->m_frame[1].CurrentValue / camera->m_frame[1].Bin,
+                camera->m_frame[0].CurrentValue / camera->m_frame[0].Bin);
+    ImGui::Text("Current Offset {binned}: %dx%d",
+                camera->m_frame[1].AxisOffset / camera->m_frame[1].Bin,
+                camera->m_frame[0].AxisOffset / camera->m_frame[0].Bin);
     if (camera->is_running) ImGui::BeginDisabled();
+    ImGui::SliderInt("Width (X)",
+                     reinterpret_cast<int *>(&camera->m_frame[1].CurrentValue),
+                     camera->m_frame[1].MinValue, camera->m_frame[1].MaxValue - camera->m_frame[1].AxisOffset);
+    ImGui::SliderInt("Height (Y)",
+                     reinterpret_cast<int *>(&camera->m_frame[0].CurrentValue),
+                     camera->m_frame[0].MinValue, camera->m_frame[0].MaxValue - camera->m_frame[0].AxisOffset);
+    ImGui::SliderInt(
+        "Offset (X)", reinterpret_cast<int *>(&camera->m_frame[1].AxisOffset),
+        camera->m_frame[1].MinValue,
+        camera->m_frame[1].MaxValue - camera->m_frame[1].CurrentValue);
+    ImGui::SliderInt(
+        "Offset (Y)", reinterpret_cast<int *>(&camera->m_frame[0].AxisOffset),
+        camera->m_frame[0].MinValue,
+        camera->m_frame[0].MaxValue - camera->m_frame[0].CurrentValue);
+
+    static int bin = 0, fmt = 0;
     if (ImGui::Combo("Format", &fmt, &items_fmt[0], items_fmt.size())) {
       HelloImGui::Log(
           HelloImGui::LogLevel::Info, "Format %s",
@@ -195,21 +238,8 @@ class CameraWindow {
       HelloImGui::Log(HelloImGui::LogLevel::Info, "Binning %d", number);
       camera->SetCCDBin(number);
     }
-    if (camera->is_running) ImGui::EndDisabled();
 
-    if (camera->is_connected) {
-      if (ImGui::Button(ICON_FA_THUMBS_UP " Apply Settings")) {
-        if (!camera->UpdateControls())
-          HelloImGui::Log(HelloImGui::LogLevel::Error,
-                          "Failed to update settings.");
-      }
-      ImGui::SameLine();
-      if (ImGui::Button(ICON_FA_THUMBS_DOWN " Revert Settings")) {
-        if (!camera->RetrieveControls())
-          HelloImGui::Log(HelloImGui::LogLevel::Error,
-                          "Failed to update settings.");
-      }
-    }
+    if (camera->is_running) ImGui::EndDisabled();
   }
   void guiAcquisition() {
     if (camera->is_running) ImGui::BeginDisabled();

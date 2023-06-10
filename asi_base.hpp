@@ -29,17 +29,28 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>
 #include <tuple>
-#include <map>
 #include <vector>
 
 #include "asi_helpers.hpp"
 #include "circular_buffer.hpp"
 #include "hello_imgui/hello_imgui.h"
 #include "timer.hpp"
+typedef struct _RESOLUTION_STRUCT {
+  char Name[64];  // the name of the Control like Exposure, Gain etc..
+  /*uint16_t*/ int MaxValue;
+  /*uint16_t*/ int MinValue = 0;
+  /*uint16_t*/ int DefaultValue;
+  /*uint16_t*/ int CurrentValue;
+  /*uint16_t*/ int AxisOffset;
+  /*uint16_t*/ int BinnedValue;
+  /*uint16_t*/ int BinndedAxisOffset;
+  uint16_t Bin;
+} RESOLUTION_STRUCT;
 typedef struct _ASI_CONTROL_CAPS_CAST {
   char Name[64];          // the name of the Control like Exposure, Gain etc..
   char Description[128];  // description of this control
@@ -66,18 +77,16 @@ class ASIBase {
     mCameraInfo = _CameraInfo;
     print_camera_info();
 
-    for (size_t i = 0; i < 8; i++)
-    {
+    for (size_t i = 0; i < 8; i++) {
       if (mCameraInfo.SupportedVideoFormat[i] == ASI_IMG_END) break;
       m_supportedFormat.push_back(mCameraInfo.SupportedVideoFormat[i]);
-      m_supportedFormat_str.push_back(ASIHelpers::toPrettyString(mCameraInfo.SupportedVideoFormat[i]));
+      m_supportedFormat_str.push_back(
+          ASIHelpers::toPrettyString(mCameraInfo.SupportedVideoFormat[i]));
     }
-    for (size_t i = 0; i < 16; i++)
-    {
+    for (size_t i = 0; i < 16; i++) {
       if (mCameraInfo.SupportedBins[i] > 0)
         m_supportedBin.push_back(std::to_string(mCameraInfo.SupportedBins[i]));
     }
-
   }
 
   ~ASIBase() { Disconnect(); }
@@ -146,9 +155,9 @@ class ASIBase {
           SetControlValue(rcap->ControlType, rcap->current_value,
                           rcap->IsAutoSupported ? rcap->current_isauto : false);
       if (cap.ControlType == ASI_EXPOSURE) {
-        ret =
-            SetControlValue(rcap->ControlType, rcap->current_value * 1000,
-                            rcap->IsAutoSupported ? rcap->current_isauto : false);
+        ret = SetControlValue(
+            rcap->ControlType, rcap->current_value * 1000,
+            rcap->IsAutoSupported ? rcap->current_isauto : false);
       }
       if (ret != ASI_SUCCESS) {
         spdlog::critical("Failed to set value for {} ({}).", rcap->Name,
@@ -199,23 +208,27 @@ class ASIBase {
         "CCD ID: {} Width: {} Height: {} Binning: {}x{} Image Type: {}",
         mCameraID, width, height, bin, bin,
         ASIHelpers::toString(mCurrentStillFormat));
-    m_bin[0] = bin;
-    m_bin[1] = bin;
-    m_frame[2] = width * bin;
-    m_frame[3] = height * bin;
-    m_binned_frame[2] = width;
-    m_binned_frame[3] = height;
+    m_frame[0].DefaultValue = mCameraInfo.MaxHeight;
+    m_frame[1].DefaultValue = mCameraInfo.MaxWidth;
+    m_frame[0].MaxValue = mCameraInfo.MaxHeight;
+    m_frame[1].MaxValue = mCameraInfo.MaxWidth;
+    m_frame[0].CurrentValue = height * bin;
+    m_frame[1].CurrentValue = width * bin;
+    m_frame[0].BinnedValue = height;
+    m_frame[1].BinnedValue = width;
+    m_frame[0].Bin = bin;
+    m_frame[1].Bin = bin;
     ret = ASIGetStartPos(mCameraID, &width, &height);
+    m_frame[0].AxisOffset = height;
+    m_frame[1].AxisOffset = width;
+    m_frame[0].BinndedAxisOffset = height / bin;
+    m_frame[1].BinndedAxisOffset = width / bin;
     if (ret != ASI_SUCCESS) {
       spdlog::critical("Failed to get ROI format (%s).",
                        ASIHelpers::toString(ret));
       return false;
     }
     spdlog::info("CCD ID: {} StartPos: {}x{}", mCameraID, width, height);
-    m_frame[0] = width * bin;
-    m_frame[1] = height * bin;
-    m_binned_frame[0] = width;
-    m_binned_frame[1] = height;
     spdlog::info("Successfully retrieved controls for {}...", mCameraName);
     return true;
   }
@@ -260,10 +273,6 @@ class ASIBase {
           rcap->current_value, rcap->current_isauto ? "True" : "False");
 
       // Update Min/Max exposure as supported by the camera
-
-      if (cap.ControlType == ASI_BANDWIDTHOVERLOAD) {
-        mBandwidthCap = rcap;
-      }
     }
 
     spdlog::info("Successfully created controls for {}...", mCameraName);
@@ -292,8 +301,7 @@ class ASIBase {
     if (is_running) {
       spdlog::debug("camera is busy IsRunning: {} IsStill: {}", is_running,
                     is_still);
-      HelloImGui::Log(HelloImGui::LogLevel::Error,
-                          "camera is busy");
+      HelloImGui::Log(HelloImGui::LogLevel::Error, "camera is busy");
       return false;
     }
     if (!SetCCDROI()) return false;
@@ -307,8 +315,7 @@ class ASIBase {
                        ASIHelpers::toString(ret));
     }
     spdlog::info("Started video capture {} MB", max_buffer_size);
-    HelloImGui::Log(HelloImGui::LogLevel::Debug,
-                          "Started video capture");
+    HelloImGui::Log(HelloImGui::LogLevel::Debug, "Started video capture");
 
     timer.Start();
     escaped.Start();
@@ -322,7 +329,7 @@ class ASIBase {
 
     m_circular_buffer.reset();
     m_circular_buffer = std::make_shared<Circular_Buffer<uint8_t>>(
-        max_buffer_size *1024*1024/ nTotalBytes, nTotalBytes);
+        max_buffer_size * 1024 * 1024 / nTotalBytes, nTotalBytes);
 
     while (true) {
       if (do_abort) {
@@ -340,13 +347,14 @@ class ASIBase {
         m_fps = float(count) * 1000. / float(timer.Finish());
         m_vc_escape = escaped.Finish();
         timer.Start();
-        spdlog::debug("Capturing at {} fps. Dropped frame {}", m_fps, m_dropped_frames);
+        spdlog::debug("Capturing at {} fps. Dropped frame {}", m_fps,
+                      m_dropped_frames);
         count = 0;
       }
 
-      uint8_t *targetFrame = m_circular_buffer->get_new_buffer();  // PrimaryCCD.getFrameBuffer();
-      if (targetFrame == nullptr)
-      {
+      uint8_t *targetFrame =
+          m_circular_buffer->get_new_buffer();  // PrimaryCCD.getFrameBuffer();
+      if (targetFrame == nullptr) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         continue;
       }
@@ -364,7 +372,6 @@ class ASIBase {
         continue;
       }
 
-
       count++;
 
       // if (mCurrentVideoFormat == ASI_IMG_RGB24)
@@ -380,17 +387,16 @@ class ASIBase {
     if (is_running) {
       spdlog::debug("camera is busy IsRunning: {} IsStill: {}", is_running,
                     is_still);
-      HelloImGui::Log(HelloImGui::LogLevel::Error,
-                          "camera is busy");
+      HelloImGui::Log(HelloImGui::LogLevel::Error, "camera is busy");
       return false;
     }
     int32_t expo_ms = mExposureCap->current_value;
 
-      HelloImGui::Log(HelloImGui::LogLevel::Debug,
-                          "Starting %d msec exposure...", expo_ms);
-    spdlog::debug("Starting {} msec exposure...", expo_ms);
     if (!SetCCDROI()) return false;
     if (!UpdateExposure()) return false;
+    spdlog::debug("Starting {} msec exposure...", expo_ms);
+    HelloImGui::Log(HelloImGui::LogLevel::Debug, "Starting %d msec exposure...",
+                    expo_ms);
 
     Timer escaped;
     ASI_ERROR_CODE ret = ASI_SUCCESS;
@@ -464,9 +470,18 @@ class ASIBase {
     }
     for (size_t i = 0; i < 8; i++)
       if (bin == mCameraInfo.SupportedBins[i]) {
-        m_bin[0] = bin;
-        m_bin[1] = bin;
+        m_frame[0].Bin = bin;
+        m_frame[1].Bin = bin;
+        m_frame[0].BinnedValue = m_frame[0].CurrentValue / bin;
+        m_frame[1].BinnedValue = m_frame[1].CurrentValue / bin;
+        m_frame[0].BinndedAxisOffset = m_frame[0].AxisOffset / bin;
+        m_frame[1].BinndedAxisOffset = m_frame[1].AxisOffset / bin;
         spdlog::debug("Bin Set to: {}", bin);
+        spdlog::debug("Bined Resolution to: {} x {}", m_frame[0].BinnedValue,
+                      m_frame[1].BinnedValue);
+        spdlog::debug("Bined Resolution to: {} x {}",
+                      m_frame[0].BinndedAxisOffset,
+                      m_frame[1].BinndedAxisOffset);
         return true;
       }
     spdlog::critical("Invalid bin request : {}", bin);
@@ -474,18 +489,20 @@ class ASIBase {
     return false;
   }
   bool SetCCDROI() {
-    uint32_t binX = m_bin[0];
-    uint32_t binY = m_bin[1];
-    uint32_t subX = m_frame[0] / binX;
-    uint32_t subY = m_frame[1] / binY;
-    uint32_t subW = m_frame[2] / binX;
-    uint32_t subH = m_frame[3] / binY;
-    if (subW > static_cast<uint32_t>(mCameraInfo.MaxWidth / binX)) {
-      spdlog::critical("Invalid width request : {}", m_frame[2]);
+    uint32_t binX = m_frame[1].Bin;
+    uint32_t binY = m_frame[0].Bin;
+    uint32_t subX = m_frame[1].BinndedAxisOffset;
+    uint32_t subY = m_frame[0].BinndedAxisOffset;
+    uint32_t subW = m_frame[1].BinnedValue;
+    uint32_t subH = m_frame[0].BinnedValue;
+    if (subW + subX > static_cast<uint32_t>(mCameraInfo.MaxWidth / binX)) {
+      spdlog::critical("Invalid width request : {} @ offset {} ({})", subW,
+                       subX, mCameraInfo.MaxWidth / binX);
       return false;
     }
-    if (subH > static_cast<uint32_t>(mCameraInfo.MaxHeight / binY)) {
-      spdlog::critical("Invalid width request : {}", m_frame[3]);
+    if (subH + subY > static_cast<uint32_t>(mCameraInfo.MaxHeight / binY)) {
+      spdlog::critical("Invalid width request : {} @ offset {} (){})", subH,
+                       subY, mCameraInfo.MaxHeight / binY);
       return false;
     }
 
@@ -494,10 +511,8 @@ class ASIBase {
     // values
     subW -= subW % 8;
     subH -= subH % 2;
-    m_binned_frame[0] = subX;
-    m_binned_frame[1] = subY;
-    m_binned_frame[2] = subW;
-    m_binned_frame[3] = subH;
+    m_frame[1].BinnedValue = subW;
+    m_frame[0].BinnedValue = subH;
 
     spdlog::debug("Frame ROI x:{} y:{} w:{} h:{}", subX, subY, subW, subH);
 
@@ -533,9 +548,10 @@ class ASIBase {
     size_t sz = 1;
     if (type == ASI_IMG_RAW16) sz = 2;
 
-    return std::make_tuple(
-        pixel,
-        std::array<uint16_t, 3>{m_binned_frame[2], m_binned_frame[3], dim}, sz);
+    return std::make_tuple(pixel,
+                           std::array<uint16_t, 3>{m_frame[0].BinnedValue,
+                                                   m_frame[1].BinnedValue, dim},
+                           sz);
   }
   size_t GrabStillFrame() {
     ASI_ERROR_CODE ret = ASI_SUCCESS;
@@ -637,9 +653,7 @@ class ASIBase {
   std::atomic_uint32_t m_vc_escape;
   std::atomic_uint32_t m_expo_escape;
 
-  std::array<uint8_t, 2> m_bin;
-  std::array<uint16_t, 4> m_frame;
-  std::array<uint16_t, 4> m_binned_frame;
+  std::array<RESOLUTION_STRUCT, 2> m_frame;
   std::shared_ptr<Circular_Buffer<uint8_t>>
       m_circular_buffer;  // using a smart pointer is safer (and we don't
   std::unique_ptr<uint8_t[]>
@@ -654,7 +668,7 @@ class ASIBase {
   }
   std::vector<ASI_CONTROL_CAPS> mControlCaps;
   ASI_CONTROL_CAPS_CAST *mExposureCap;
-  ASI_CONTROL_CAPS_CAST *mBandwidthCap;
+  ASI_CONTROL_CAPS_CAST mBandwidthCap;
 
   void print_camera_info() {
     spdlog::debug("Name: {}; ID: {}", mCameraInfo.Name, mCameraInfo.CameraID);
@@ -663,10 +677,11 @@ class ASIBase {
     spdlog::debug("IsColor: {} BayerPattern {}",
                   mCameraInfo.IsColorCam ? "True" : "False",
                   ASIHelpers::toString(mCameraInfo.BayerPattern));
-    spdlog::debug("SupportedBins: {} {} {} {} {}", mCameraInfo.SupportedBins[0], //16
+    spdlog::debug("SupportedBins: {} {} {} {} {}",
+                  mCameraInfo.SupportedBins[0],  // 16
                   mCameraInfo.SupportedBins[1], mCameraInfo.SupportedBins[2],
                   mCameraInfo.SupportedBins[3], mCameraInfo.SupportedBins[4]);
-    spdlog::debug("SupportedVideoFormat: {} {} {} {} {}", // 8
+    spdlog::debug("SupportedVideoFormat: {} {} {} {} {}",  // 8
                   ASIHelpers::toString(mCameraInfo.SupportedVideoFormat[0]),
                   ASIHelpers::toString(mCameraInfo.SupportedVideoFormat[1]),
                   ASIHelpers::toString(mCameraInfo.SupportedVideoFormat[2]),
