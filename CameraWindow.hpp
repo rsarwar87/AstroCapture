@@ -45,6 +45,8 @@ class CameraWindow {
   size_t mTSysMem;
   std::string selectedFilename;
 
+  std::thread thCapture;
+
  private:
   void guiHelp() {
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -65,21 +67,21 @@ class CameraWindow {
         ImGui::EndDisabled();
       switch (cameraState) {
         case CameraState::Disconnected:
-          if (ImGui::Button(ICON_FA_ROCKET " Connect")) {
+          if (ImGui::Button(ICON_FA_LINK " Connect")) {
             camera->Connect();
             cameraState = CameraState::Connected;
             camera->CreateControls();
-            camera->RetrieveControls();
+            camera->RetrieveControls(true);
 
             items_fmt.clear();
             items_fmt.reserve(camera->m_supportedFormat_str.size());
-            for (int index = 0; index < camera->m_supportedFormat_str.size();
+            for (size_t index = 0; index < camera->m_supportedFormat_str.size();
                  ++index) {
               items_fmt.push_back(camera->m_supportedFormat_str[index].c_str());
             }
             items_bin.clear();
             items_bin.reserve(camera->m_supportedBin.size());
-            for (int index = 0; index < camera->m_supportedBin.size();
+            for (size_t index = 0; index < camera->m_supportedBin.size();
                  ++index) {
               items_bin.push_back(camera->m_supportedBin[index].c_str());
             }
@@ -90,7 +92,7 @@ class CameraWindow {
           }
           break;
         case CameraState::Connected:
-          if (ImGui::Button(ICON_FA_ROCKET " Disconnect")) {
+          if (ImGui::Button(ICON_FA_STOP_CIRCLE " Disconnect")) {
             camera->Disconnect();
             // camera.reset();
             cameraState = CameraState::Disconnected;
@@ -118,7 +120,7 @@ class CameraWindow {
         guiControl();
     }
     if (camera->is_connected) {
-      if (ImGui::CollapsingHeader("Configuration",
+      if (ImGui::CollapsingHeader(ICON_FA_WRENCH "Configuration",
                                   ImGuiTreeNodeFlags_DefaultOpen))
         guiAcquisition();
     }
@@ -194,11 +196,27 @@ class CameraWindow {
       camera->SetCCDBin(number);
     }
     if (camera->is_running) ImGui::EndDisabled();
+
+    if (camera->is_connected) {
+      if (ImGui::Button(ICON_FA_THUMBS_UP " Apply Settings")) {
+        if (!camera->UpdateControls())
+          HelloImGui::Log(HelloImGui::LogLevel::Error,
+                          "Failed to update settings.");
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(ICON_FA_THUMBS_DOWN " Revert Settings")) {
+        if (!camera->RetrieveControls())
+          HelloImGui::Log(HelloImGui::LogLevel::Error,
+                          "Failed to update settings.");
+      }
+    }
   }
   void guiAcquisition() {
     if (camera->is_running) ImGui::BeginDisabled();
     ImGui::SliderInt("Buffer Size", &mSysMem, 256, mTSysMem * 0.6);
-    if (ImGui::Button("...")) {
+    ImGui::InputText("Directory", &selectedFilename[0], 512);
+    ImGui::SameLine();
+    if (ImGui::Button(ICON_FA_SAVE "...")) {
       ifd::FileDialog::Instance().Open("DirectoryOpenDialog",
                                        "Open a directory", "");
     }
@@ -209,6 +227,19 @@ class CameraWindow {
       HelloImGui::Log(HelloImGui::LogLevel::Info, "Directory: %s",
                       selectedFilename.c_str());
       ifd::FileDialog::Instance().Close();
+    }
+    if (!camera->is_running) {
+      if (ImGui::Button(ICON_FA_TV " Capture Frame")) {
+        camera->DoCaptureHelper();
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(ICON_FA_ROCKET " Capture Video")) {
+        camera->DoVCaptureHelper(mSysMem);
+      }
+    } else {
+      if (ImGui::Button(ICON_FA_STOP " Abort")) {
+        camera->AbortExposure();
+      }
     }
   }
 };
