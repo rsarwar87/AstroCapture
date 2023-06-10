@@ -58,6 +58,12 @@ class CameraWindow {
       if (ImGui::Combo("Camera", &camcurrent,
                        reinterpret_cast<const char **>(names.data()),
                        names.size())) {
+        if (camera.get() == nullptr) 
+        {
+          HelloImGui::Log(
+            HelloImGui::LogLevel::Error, "No Camera was found");
+          return;
+        }
         HelloImGui::Log(
             HelloImGui::LogLevel::Info, "Selected %s Camera",
             loader.cameras[keys[camcurrent]]->getDefaultName().c_str());
@@ -70,6 +76,12 @@ class CameraWindow {
       switch (cameraState) {
         case CameraState::Disconnected:
           if (ImGui::Button(ICON_FA_LINK " Connect")) {
+            if (camera.get() == nullptr) 
+            {
+              HelloImGui::Log(
+                HelloImGui::LogLevel::Error, "No Camera was found");
+              return;
+            }
             camera->Connect();
             cameraState = CameraState::Connected;
             camera->CreateControls();
@@ -112,6 +124,7 @@ class CameraWindow {
           break;
       }
     }
+    if (camera.get() == nullptr) return;
     if (names.size() > 0)
       if (ImGui::CollapsingHeader("Camera info",
                                   ImGuiTreeNodeFlags_DefaultOpen))

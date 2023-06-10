@@ -39,6 +39,7 @@ std::string to_string_with_precision(const T a_value, const int n = 2) {
 
 // Our Gui in the status bar
 void StatusBarGui(const CameraWindow &cam) {
+  if (cam.camera.get() == nullptr) return;
   if (cam.camera->is_running) {
     if (cam.camera->is_still) {
       ImGui::SameLine();
