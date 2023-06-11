@@ -12,6 +12,8 @@
 #include "CameraWindow.hpp"
 #include "HyperlinkHelper.hpp"
 #include "ViewPort.hpp"
+#include "AcqusitionHandler.hpp"
+#include <memory>
 // MyLoadFonts: demonstrate
 // * how to load additional fonts
 // * how to use assets from the local assets/ folder
@@ -108,7 +110,8 @@ int main(int, char **) {
   // Part 1: Define the application state, fill the status and menu bars, and
   // load additional font
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  ViewPort viewPort;
+  std::shared_ptr<AcqManager> acqManager = std::make_shared<AcqManager>();
+  ViewPort viewPort(acqManager);
   CameraWindow cameraWindow;
   AboutWindow aboutWindow;
   Acknowledgments acknowledgments;
