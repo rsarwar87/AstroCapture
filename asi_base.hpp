@@ -549,8 +549,8 @@ class ASIBase {
     if (type == ASI_IMG_RAW16) sz = 2;
 
     return std::make_tuple(pixel,
-                           std::array<uint16_t, 3>{m_frame[0].BinnedValue,
-                                                   m_frame[1].BinnedValue, dim},
+                           std::array<uint16_t, 3>{static_cast<uint16_t> (m_frame[0].BinnedValue),
+                                                   static_cast<uint16_t> (m_frame[1].BinnedValue), dim},
                            sz);
   }
   size_t GrabStillFrame() {

@@ -187,7 +187,7 @@ class CameraWindow {
                          rcap->MinValue, rcap->MaxValue);
       }
       if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip(rcap->Description);
+        ImGui::SetTooltip("%s", rcap->Description);
       }
       if (rcap->IsAutoSupported) {
         ImGui::SameLine();
@@ -243,7 +243,7 @@ class CameraWindow {
       camera->mCurrentVideoFormat = camera->m_supportedFormat[fmt];
     }
     if (ImGui::Combo("Binning", &bin, &items_bin[0], items_bin.size())) {
-      int number;
+      int number = 0;
       std::from_chars(camera->m_supportedBin[bin].data(),
                       camera->m_supportedBin[bin].data() +
                           camera->m_supportedBin[bin].size(),
