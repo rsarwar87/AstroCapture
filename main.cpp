@@ -11,6 +11,7 @@
 
 #include "CameraWindow.hpp"
 #include "HyperlinkHelper.hpp"
+#include "ViewPort.hpp"
 // MyLoadFonts: demonstrate
 // * how to load additional fonts
 // * how to use assets from the local assets/ folder
@@ -107,7 +108,7 @@ int main(int, char **) {
   // Part 1: Define the application state, fill the status and menu bars, and
   // load additional font
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+  ViewPort viewPort;
   CameraWindow cameraWindow;
   AboutWindow aboutWindow;
   Acknowledgments acknowledgments;
@@ -224,9 +225,9 @@ int main(int, char **) {
   // A Window named "Dear ImGui Demo" will be placed in "MainDockSpace"
   HelloImGui::DockableWindow captureWindow;
   {
-    captureWindow.label = "CaptureWindow";
+    captureWindow.label = "ViewPort";
     captureWindow.dockSpaceName = "MainDockSpace";
-    // captureWindow.GuiFunction = [] { ImGui::ShowDemoWindow(); };
+    captureWindow.GuiFunction = [&viewPort] { viewPort.gui(); };
   }
   HelloImGui::DockableWindow dock_acknowledgments;
   {
