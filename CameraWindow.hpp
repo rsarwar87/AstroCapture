@@ -1,19 +1,19 @@
 #ifndef __camera_window__
 #define __camera_window__
+#include <spdlog/spdlog.h>
 #include <unistd.h>
 
 #include <charconv>
 #include <iterator>
 #include <map>
 #include <memory>
+#include <opencv2/core/core.hpp>
 #include <string>
 #include <vector>
 
 #include "ImFileDialog/ImFileDialog.h"
 #include "asi_ccd.hpp"
 #include "hello_imgui/hello_imgui.h"
-
-#include <opencv2/core/core.hpp>
 
 class CameraWindow {
  public:
@@ -31,6 +31,7 @@ class CameraWindow {
     long pages = sysconf(_SC_PHYS_PAGES);
     long page_size = sysconf(_SC_PAGE_SIZE);
     mTSysMem = page_size * pages / 1024 / 1024;
+    spdlog::debug("Total System Memory: {}", mTSysMem);
     HelloImGui::Log(HelloImGui::LogLevel::Info, "Total System Memory: %d",
                     mTSysMem);
     mSysMem = 512;
@@ -58,16 +59,17 @@ class CameraWindow {
       if (ImGui::Combo("Camera", &camcurrent,
                        reinterpret_cast<const char **>(names.data()),
                        names.size())) {
-        if (camera.get() == nullptr) 
-        {
-          HelloImGui::Log(
-            HelloImGui::LogLevel::Error, "No Camera was found");
+        if (camera.get() == nullptr) {
+          HelloImGui::Log(HelloImGui::LogLevel::Error, "No Camera was found");
           return;
         }
         HelloImGui::Log(
             HelloImGui::LogLevel::Info, "Selected %s Camera",
             loader.cameras[keys[camcurrent]]->getDefaultName().c_str());
         camera = loader.cameras[keys[camcurrent]];
+        spdlog::info("Initializeded {} ", __func__);
+        spdlog::debug("Selected {} Camera ",
+                      loader.cameras[keys[camcurrent]]->getDefaultName());
       }
 
       if (cameraState == CameraState::Connected ||
@@ -76,10 +78,10 @@ class CameraWindow {
       switch (cameraState) {
         case CameraState::Disconnected:
           if (ImGui::Button(ICON_FA_LINK " Connect")) {
-            if (camera.get() == nullptr) 
-            {
-              HelloImGui::Log(
-                HelloImGui::LogLevel::Error, "No Camera was found");
+            if (camera.get() == nullptr) {
+              HelloImGui::Log(HelloImGui::LogLevel::Error,
+                              "No Camera was found");
+              spdlog::error("No Camera was found");
               return;
             }
             camera->Connect();
@@ -219,12 +221,14 @@ class CameraWindow {
                 camera->m_frame[1].AxisOffset / camera->m_frame[1].Bin,
                 camera->m_frame[0].AxisOffset / camera->m_frame[0].Bin);
     if (camera->is_running) ImGui::BeginDisabled();
-    ImGui::SliderInt("Width (X)",
-                     reinterpret_cast<int *>(&camera->m_frame[1].CurrentValue),
-                     camera->m_frame[1].MinValue, camera->m_frame[1].MaxValue - camera->m_frame[1].AxisOffset);
-    ImGui::SliderInt("Height (Y)",
-                     reinterpret_cast<int *>(&camera->m_frame[0].CurrentValue),
-                     camera->m_frame[0].MinValue, camera->m_frame[0].MaxValue - camera->m_frame[0].AxisOffset);
+    ImGui::SliderInt(
+        "Width (X)", reinterpret_cast<int *>(&camera->m_frame[1].CurrentValue),
+        camera->m_frame[1].MinValue,
+        camera->m_frame[1].MaxValue - camera->m_frame[1].AxisOffset);
+    ImGui::SliderInt(
+        "Height (Y)", reinterpret_cast<int *>(&camera->m_frame[0].CurrentValue),
+        camera->m_frame[0].MinValue,
+        camera->m_frame[0].MaxValue - camera->m_frame[0].AxisOffset);
     ImGui::SliderInt(
         "Offset (X)", reinterpret_cast<int *>(&camera->m_frame[1].AxisOffset),
         camera->m_frame[1].MinValue,
