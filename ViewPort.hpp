@@ -38,11 +38,11 @@ class ViewPort : public IVInspector {
   }
   std::string ResourcesDir() {
     std::filesystem::path this_file(__FILE__);
-    return ("/home/rsarwar/workspace/AstroCapture/build/resources");
+    return ("/home/rsarwar/workspace/wkspace1/asi_planet/AstroCapture" +  std::string("/assets/"));
   }
   cv::Mat* UpdateInspector() {
     std::string zoomKey = "zk";
-    auto image = cv::imread(ResourcesDir() + "/house.jpg");
+    auto image = cv::imread(ResourcesDir() + "/moon.jpg");
     static cv::Mat gray;
     cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
     auto item = s_Inspector_ImagesAndParams;
@@ -52,7 +52,7 @@ class ViewPort : public IVInspector {
   cv::Mat blur;
   void FillInspector() {
     std::string zoomKey = "zk";
-    auto image = cv::imread(ResourcesDir() + "/house.jpg");
+    auto image = cv::imread(ResourcesDir() + "/moon.jpg");
     Inspector_AddImage(image, "Original", zoomKey);
 
     cv::Mat gray;
