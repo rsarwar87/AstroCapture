@@ -1,7 +1,6 @@
 #ifndef __AcquisitionManager__
 #define __AcquisitionManager__
 //#include <opencv2/opencv.hpp>
-#include "immdebug/immdebug.h"
 #include <GL/gl.h>
 
 #include "hello_imgui/hello_imgui.h"
