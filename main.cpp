@@ -12,6 +12,7 @@
 #include "CameraWindow.hpp"
 #include "HyperlinkHelper.hpp"
 #include "ViewPort.hpp"
+#include "Plots.hpp"
 #include "AcqusitionHandler.hpp"
 #include <memory>
 // MyLoadFonts: demonstrate
@@ -111,6 +112,7 @@ int main(int, char **) {
   // load additional font
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   std::shared_ptr<AcqManager> acqManager = std::make_shared<AcqManager>();
+  PlotWidget plotWidget;
   ViewPort viewPort(acqManager);
   CameraWindow cameraWindow;
   AboutWindow aboutWindow;
@@ -219,6 +221,12 @@ int main(int, char **) {
   }
   // A Log  window named "Logs" will be placed in "BottomSpace". It uses the
   // HelloImGui logger gui
+  HelloImGui::DockableWindow plotWindow;
+  {
+    plotWindow.label = "Statistics";
+    plotWindow.dockSpaceName = "BottomSpace";
+    plotWindow.GuiFunction = [&plotWidget] { plotWidget.gui(); };
+  }
   HelloImGui::DockableWindow logsWindow;
   {
     logsWindow.label = "Logs";
@@ -252,7 +260,7 @@ int main(int, char **) {
   };
   // Finally, transmit these windows to HelloImGui
   runnerParams.dockingParams.dockableWindows = {
-      dock_about, /*cameraWindow,*/ commandsWindow, logsWindow,
+      dock_about, commandsWindow, logsWindow, plotWindow, 
       dock_acknowledgments, captureWindow};
   aboutWindow.isVisible =
       &(runnerParams.dockingParams.dockableWindowOfName("About")->isVisible);

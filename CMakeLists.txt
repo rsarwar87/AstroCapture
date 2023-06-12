@@ -40,7 +40,7 @@ find_package(spdlog REQUIRED)
 ##########################################################
 # Call imgui_bundle_add_app
 FILE(GLOB sources_imgui_astrocapture
-    ${CMAKE_CURRENT_LIST_DIR}/*.h
+    ${CMAKE_CURRENT_LIST_DIR}/*.hpp
     ${CMAKE_CURRENT_LIST_DIR}/*.cpp
     )
 imgui_bundle_add_app(astrocapture ${sources_imgui_astrocapture})

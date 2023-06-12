@@ -41,7 +41,7 @@ struct Inspector_ImageAndParams {
   bool WasSentToTextureCache = false;
   SobelParams sParam;
   int targetFPS = 0; 
-  int recordFPS = 0; 
+  int recordFPS = 1; 
 };
 
 class IVInspector {

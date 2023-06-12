@@ -8,7 +8,54 @@
 
 #include <memory>
 #include <atomic>
+#include <array>
+#include <vector>
 
+// Array-based push-only circular buffer.
+
+// Sample usage:
+//
+// CircularBuffer<int, 3> buff;
+// buff.push( 1 ); // 1
+// buff.push( 2 ); // 1 2
+// buff.push( 3 ); // 1 2 3
+// buff.push( 4 ); // 2 3 4
+// buff.push( 5 ); // 3 4 5
+
+//for( int i : buff )
+//  std::cout << i << std::endl;
+
+template <class T, std::size_t SIZE>
+class CircularBuffer
+{
+public:
+  static_assert( SIZE > 0 );
+
+  CircularBuffer() {
+    mBuffer.resize(SIZE);
+  }
+  void push( const T & value )
+  {
+
+    mBuffer.erase(mBuffer.begin());
+    mBuffer.push_back(value);
+  }
+
+  T* get_buffer()
+  {
+    return mBuffer.data();
+  }
+
+  void reset()
+  {
+    mBuffer.resize(0);
+    mBuffer.resize(SIZE);
+  }
+
+private:
+  enum {                   mCapacity     = SIZE };
+  std::vector<T> mBuffer;
+};
 //-------------------------------------------------------------------
 template <class T>
 class Circular_Buffer {
