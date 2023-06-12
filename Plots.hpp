@@ -72,7 +72,7 @@ class PlotWidget {
   void TablePlot(std::string str, T* data, int row, float _max = 100) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
-    ImGui::Text(str.c_str());
+    ImGui::Text("%s", str.c_str());
     ImGui::TableSetColumnIndex(1);
     ImGui::PushID(row);
     Sparkline("##spark", data, 100, 0, _max, 
