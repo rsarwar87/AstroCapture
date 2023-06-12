@@ -244,7 +244,6 @@ class CameraWindow {
           HelloImGui::LogLevel::Info, "Format %s",
           ASIHelpers::toPrettyString(camera->m_supportedFormat[fmt]));
       camera->mCurrentStillFormat = camera->m_supportedFormat[fmt];
-      camera->mCurrentVideoFormat = camera->m_supportedFormat[fmt];
     }
     if (ImGui::Combo("Binning", &bin, &items_bin[0], items_bin.size())) {
       int number = 0;

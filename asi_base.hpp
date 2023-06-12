@@ -51,6 +51,19 @@ typedef struct _RESOLUTION_STRUCT {
   /*uint16_t*/ int BinndedAxisOffset;
   uint16_t Bin;
 } RESOLUTION_STRUCT;
+typedef struct _STILL_IMAGE_STRUCT {
+  std::unique_ptr<uint8_t[]>
+      buffer;  // using a smart pointer is safer (and we don't
+  ASI_IMG_TYPE currentFormat;
+  size_t size = 0;
+  size_t ch = 1;
+  size_t byte_channel = 1;
+  std::string format;
+  std::array<size_t, 3> dim;
+
+  std::atomic_bool is_new = false;
+} STILL_IMAGE_STRUCT;
+
 typedef struct _ASI_CONTROL_CAPS_CAST {
   char Name[64];          // the name of the Control like Exposure, Gain etc..
   char Description[128];  // description of this control
@@ -139,8 +152,8 @@ class ASIBase {
 
     spdlog::info("Successfully opened {}...", mCameraName);
 
-    bufferStill = std::make_unique<uint8_t[]>(mCameraInfo.MaxHeight *
-                                              mCameraInfo.MaxWidth * 3 * 2);
+    stillFrame.buffer = std::make_unique<uint8_t[]>(
+        mCameraInfo.MaxHeight * mCameraInfo.MaxWidth * 3 * 2);
     spdlog::debug("Created still buffer {}...", mCameraName);
     is_connected = true;
     return true;
@@ -390,13 +403,23 @@ class ASIBase {
       HelloImGui::Log(HelloImGui::LogLevel::Error, "camera is busy");
       return false;
     }
-    int32_t expo_ms = mExposureCap->current_value;
 
     if (!SetCCDROI()) return false;
     if (!UpdateExposure()) return false;
+    if (stillFrame.is_new)
+    {
+      stillFrame.is_new = false;
+      spdlog::warn("Previous frame not cleared, waiting 0.5 sec for things to settle...");
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    int32_t expo_ms = mExposureCap->current_value;
     spdlog::debug("Starting {} msec exposure...", expo_ms);
     HelloImGui::Log(HelloImGui::LogLevel::Debug, "Starting %d msec exposure...",
                     expo_ms);
+    stillFrame.currentFormat = mCurrentStillFormat;
+    auto imgFormat = getImageFormat(stillFrame.currentFormat);
+    size_t nTotalBytes = std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1] *
+                         std::get<1>(imgFormat)[2] * std::get<2>(imgFormat);
 
     Timer escaped;
     ASI_ERROR_CODE ret = ASI_SUCCESS;
@@ -459,6 +482,45 @@ class ASIBase {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     spdlog::debug("Exposure successful .", mExposureRetry);
+
+    ret = ASIGetDataAfterExp(mCameraID, stillFrame.buffer.get(), nTotalBytes);
+    if (ret != ASI_SUCCESS) {
+      spdlog::critical(
+          "Failed to get data after exposure ({}x{} #{} channels, {} bytes) "
+          "({}).",
+          std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
+          std::get<1>(imgFormat)[2], std::get<2>(imgFormat),
+          ASIHelpers::toString(ret));
+      return 0;
+    }
+    if (stillFrame.currentFormat == ASI_IMG_RGB24)
+    {
+        uint8_t *dstR = stillFrame.buffer.get();
+        uint8_t *dstG = stillFrame.buffer.get() + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1];
+        uint8_t *dstB = stillFrame.buffer.get() + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1] * 2;
+
+        const uint8_t *src = stillFrame.buffer.get();
+        const uint8_t *end = stillFrame.buffer.get() + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1] * 3;
+
+        while (src != end)
+        {
+            *dstB++ = *src++;
+            *dstG++ = *src++;
+            *dstR++ = *src++;
+        }
+    }
+    spdlog::debug(
+        "Downloaded exposure... ({}x{} #{} channels, {} bytes; total: {}) ",
+        std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
+        std::get<1>(imgFormat)[2], std::get<2>(imgFormat), nTotalBytes);
+    stillFrame.size = nTotalBytes;
+    stillFrame.ch = std::get<1>(imgFormat)[2];
+    stillFrame.byte_channel = std::get<2>(imgFormat);
+    stillFrame.format = "";
+    stillFrame.dim = {std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
+                      std::get<1>(imgFormat)[2]};
+    stillFrame.is_new = true;
+
     is_running = false;
 
     return true;
@@ -548,50 +610,12 @@ class ASIBase {
     size_t sz = 1;
     if (type == ASI_IMG_RAW16) sz = 2;
 
-    return std::make_tuple(pixel,
-                           std::array<uint16_t, 3>{static_cast<uint16_t> (m_frame[0].BinnedValue),
-                                                   static_cast<uint16_t> (m_frame[1].BinnedValue), dim},
-                           sz);
-  }
-  size_t GrabStillFrame() {
-    ASI_ERROR_CODE ret = ASI_SUCCESS;
-    auto imgFormat = getImageFormat(mCurrentStillFormat);
-    size_t nTotalBytes = std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1] *
-                         std::get<1>(imgFormat)[2] * std::get<2>(imgFormat);
-
-    ret = ASIGetDataAfterExp(mCameraID, bufferStill.get(), nTotalBytes);
-    if (ret != ASI_SUCCESS) {
-      spdlog::critical(
-          "Failed to get data after exposure ({}x{} #{} channels, {} bytes) "
-          "({}).",
-          std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
-          std::get<1>(imgFormat)[2], std::get<2>(imgFormat),
-          ASIHelpers::toString(ret));
-      return 0;
-    }
-#if 0
-    if (mCurrentStillFormat == ASI_IMG_RGB24)
-    {
-        uint8_t *dstR = bufferStill.get();
-        uint8_t *dstG = bufferStill.get() + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1];
-        uint8_t *dstB = bufferStill.get() + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1] * 2;
-
-        const uint8_t *src = bufferStill.get();
-        const uint8_t *end = bufferStill.get() + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1] * 3;
-
-        while (src != end)
-        {
-            *dstB++ = *src++;
-            *dstG++ = *src++;
-            *dstR++ = *src++;
-        }
-    }
-#endif
-    spdlog::debug(
-        "Downloaded exposure... ({}x{} #{} channels, {} bytes; total: {}) ",
-        std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
-        std::get<1>(imgFormat)[2], std::get<2>(imgFormat), nTotalBytes);
-    return nTotalBytes;
+    return std::make_tuple(
+        pixel,
+        std::array<uint16_t, 3>{static_cast<uint16_t>(m_frame[0].BinnedValue),
+                                static_cast<uint16_t>(m_frame[1].BinnedValue),
+                                dim},
+        sz);
   }
 
   bool StopExposure() {
@@ -636,13 +660,14 @@ class ASIBase {
   }
 
  public:
+  STILL_IMAGE_STRUCT * getImageFramePtr() {return &stillFrame;};
   std::string mCameraName;
   size_t max_buffer_size = 512;
   uint32_t mCameraID;
   ASI_CAMERA_INFO mCameraInfo;
   uint8_t mExposureRetry{0};
-  ASI_IMG_TYPE mCurrentVideoFormat;
   ASI_IMG_TYPE mCurrentStillFormat;
+  STILL_IMAGE_STRUCT stillFrame;
 
   std::atomic_bool is_running;
   std::atomic_bool is_connected;
@@ -656,8 +681,6 @@ class ASIBase {
   std::array<RESOLUTION_STRUCT, 2> m_frame;
   std::shared_ptr<Circular_Buffer<uint8_t>>
       m_circular_buffer;  // using a smart pointer is safer (and we don't
-  std::unique_ptr<uint8_t[]>
-      bufferStill;  // using a smart pointer is safer (and we don't
   std::vector<std::string> m_supportedFormat_str;
   std::vector<ASI_IMG_TYPE> m_supportedFormat;
   std::vector<std::string> m_supportedBin;
