@@ -9,6 +9,7 @@
 #include <opencv2/imgproc.hpp>
 
 #include "AcqusitionHandler.hpp"
+#include "CameraWindow.hpp"
 #include "hello_imgui/hello_imgui.h"
 #include "imgui_md_wrapper/imgui_md_wrapper.h"
 #include "immvision/immvision.h"
@@ -17,13 +18,12 @@
 using namespace ImmVision;
 class ViewPort : public IVInspector {
  public:
-  ViewPort(std::shared_ptr<AcqManager> _acqManage) : acqManage(_acqManage) {
-    spdlog::info("Initializing: {}... {}", __func__,
-                 ResourcesDir() + "/house.jpg");
-  }
+  ViewPort(std::shared_ptr<AcqManager> _acqManage) : acqManage(_acqManage) {}
   void gui() { guiHelp(); }
 
  private:
+  cv::Mat mImage;
+  Timer timer;
   std::shared_ptr<AcqManager> acqManage;
   void guiHelp() {
     static bool is_first = false;
@@ -32,45 +32,64 @@ class ViewPort : public IVInspector {
       is_first = true;
       Inspector_Show(true);
     } else {
-      Inspector_Show(true, &blur);
+      UpdateInspector();
+      Inspector_Show(true, &mImage);
     }
     GuiSobelParams();
   }
-  std::string ResourcesDir() {
-    std::filesystem::path this_file(__FILE__);
-    return ("/home/rsarwar/workspace/wkspace1/asi_planet/AstroCapture" +  std::string("/assets/"));
-  }
-  cv::Mat* UpdateInspector() {
+  void UpdateInspector() {
     std::string zoomKey = "zk";
-    auto image = cv::imread(ResourcesDir() + "/moon.jpg");
-    static cv::Mat gray;
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-    auto item = s_Inspector_ImagesAndParams;
+    // process
+    if (CameraWindow::pCamera != nullptr) {
+      if (CameraWindow::pCamera->is_connected) {
+        auto ptr = CameraWindow::pCamera->getImageFramePtr();
+        if (CameraWindow::pCamera->is_running) {
+          if (!CameraWindow::pCamera->is_still) {
+            auto ptrS = CameraWindow::pCamera->getStreamingFramePtr();
+            if (ptrS->is_active)
+            {
+              bool doprocess = true;
+              if (mImageParams.targetFPS > 0)
+              {
+                if (timer.Finish() > (1/(mImageParams.targetFPS*10))*1000)
+                {
+                  timer.Start();
+                  doprocess = true;
+                }
+              }
+              if (doprocess)
+              {
+                auto bufImg = ptrS->buffer->dequeue();
+                ptrS->buffer->move_trail();
+              }
+              
+            }
+          }
+        } else if (ptr->is_new) {
+          if (ptr->mutex.try_lock())
+          {
+            spdlog::info("Got New Still Frame");
+            ptr->is_new = false;
+            ptr->mutex.unlock();
+          }
+
+        }
+      }
+    }
+    auto item = mImageParams;
     item.Params.RefreshImage = true;
-    return &gray;
   }
-  cv::Mat blur;
   void FillInspector() {
     std::string zoomKey = "zk";
-    auto image = cv::imread(ResourcesDir() + "/moon.jpg");
-    Inspector_AddImage(image, "Original", zoomKey);
-
-    cv::Mat gray;
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-    Inspector_AddImage(gray, "Gray", zoomKey);
-
-    cv::GaussianBlur(gray, blur, cv::Size(), 7.);
-    Inspector_AddImage(blur, "Blur", zoomKey);
-
-    cv::Mat floatMat;
-    blur.convertTo(floatMat, CV_64FC1);
-    floatMat = floatMat / 255.f;
-    Inspector_AddImage(floatMat, "FloatMat", zoomKey);
-    blur = image;
+    mImage = cv::imread(std::filesystem::canonical("/proc/self/exe")
+                            .remove_filename()
+                            .string() +
+                        "/assets//moon.jpg");
+    Inspector_AddImage(mImage, "CapturedFrame", zoomKey);
   }
   bool GuiSobelParams() {
     bool changed = false;
-    SobelParams& params = s_Inspector_ImagesAndParams.sParam;
+    SobelParams& params = mImageParams.sParam;
     // Blur size
     ImGui::SetNextItemWidth(ImmApp::EmSize() * 5);
     if (ImGui::SliderFloat("Blur size", &params.blur_size, 0.5f, 10.0f)) {
@@ -108,17 +127,15 @@ class ViewPort : public IVInspector {
       changed = true;
       params.orientation = Orientation::Vertical;
     }
-    const char *items[] = {"None", "10 fps", "20 fps", "30 fps"};
+    const char* items[] = {"None", "10 fps", "20 fps", "30 fps"};
     ImGui::SameLine();
     ImGui::SetNextItemWidth(ImmApp::EmSize() * 5);
-    ImGui::Combo("PreviewFPS",
-                 &(s_Inspector_ImagesAndParams.targetFPS), items,
+    ImGui::Combo("PreviewFPS", &(mImageParams.targetFPS), items,
                  IM_ARRAYSIZE(items));
     ImGui::SameLine();
     ImGui::SetNextItemWidth(ImmApp::EmSize() * 5);
-    ImGui::Combo("RecordingFPS",
-                 &(s_Inspector_ImagesAndParams.recordFPS), items,
-                 IM_ARRAYSIZE(items));
+    ImGui::Combo("RecordingFPS", &(mImageParams.recordFPS),
+                 items, IM_ARRAYSIZE(items));
 
     return changed;
   }

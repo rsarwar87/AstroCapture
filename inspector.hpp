@@ -53,7 +53,7 @@ class IVInspector {
 
   ImVec2 gInspectorImageSize;
 
-  Inspector_ImageAndParams s_Inspector_ImagesAndParams;
+  Inspector_ImageAndParams mImageParams;
   size_t s_Inspector_CurrentIndex = 0;
 
 
@@ -78,7 +78,7 @@ class IVInspector {
     std::string label =
         legend ;
     SobelParams sparam;
-    s_Inspector_ImagesAndParams = 
+    mImageParams = 
         {0, label, image.clone(), params, zoomCenter, zoomRatio};
 
   }
@@ -90,7 +90,7 @@ class IVInspector {
     float x_margin = emSize * 2.f;
     float y_margin = emSize / 3.f;
     float image_info_height = ImGui::GetFontSize() * 10.f;
-      const auto& params = s_Inspector_ImagesAndParams.Params;
+      const auto& params = mImageParams.Params;
       if (!params.ShowImageInfo) image_info_height -= emSize * 1.5f;
       if (!params.ShowPixelInfo) image_info_height -= emSize * 1.5f;
     float image_options_width =
@@ -102,7 +102,7 @@ class IVInspector {
     if (imageSize.y < 1.f) imageSize.y = 1.f;
 
     gInspectorImageSize = imageSize;
-    auto& i = s_Inspector_ImagesAndParams;
+    auto& i = mImageParams;
     {
       // Force image size
       i.Params.ImageDisplaySize = cv::Size((int)imageSize.x, (int)imageSize.y);
@@ -115,7 +115,7 @@ class IVInspector {
     priv_Inspector_ImageSize(showOptionsColumn);
     {
 
-        auto& imageAndParams = s_Inspector_ImagesAndParams;
+        auto& imageAndParams = mImageParams;
         Image(imageAndParams.Label, img == nullptr ? imageAndParams.Image : *img,
               &imageAndParams.Params);
     }

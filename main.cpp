@@ -42,32 +42,32 @@ std::string to_string_with_precision(const T a_value, const int n = 2) {
 }
 
 // Our Gui in the status bar
-void StatusBarGui(const CameraWindow &cam) {
-  if (cam.camera.get() == nullptr) return;
-  if (cam.camera->is_running) {
-    if (cam.camera->is_still) {
+void StatusBarGui() {
+  if (CameraWindow::pCamera.get() == nullptr) return;
+  if (CameraWindow::pCamera->is_running) {
+    if (CameraWindow::pCamera->is_still) {
       ImGui::SameLine();
       ImGui::Text("Exposure status:");
       ImGui::SameLine();
-      ImGui::ProgressBar(1 - float(cam.camera->m_expo_escape) /
-                                 float(cam.camera->mExposureCap->current_value),
+      ImGui::ProgressBar(1 - float(CameraWindow::pCamera->m_expo_escape) /
+                                 float(CameraWindow::pCamera->mExposureCap->current_value),
                          HelloImGui::EmToVec2(12.f, 1.f));
       ImGui::SameLine();
-      ImGui::Text("%d/%d", int(cam.camera->m_expo_escape),
-                  int(cam.camera->mExposureCap->current_value));
+      ImGui::Text("%d/%d", int(CameraWindow::pCamera->m_expo_escape),
+                  int(CameraWindow::pCamera->mExposureCap->current_value));
       ImGui::SameLine();
       ImGui::Text(" ms");
     } else {
       ImGui::Text("Video buffer fullness: ");
       ImGui::SameLine();
-      ImGui::ProgressBar(cam.camera->m_circular_buffer->update_fullness(),
+      ImGui::ProgressBar(CameraWindow::pCamera->getStreamingFramePtr()->buffer->update_fullness(),
                          HelloImGui::EmToVec2(12.f, 1.f));
 
       ImGui::SameLine();
       ImGui::Text(
           "Video capture fps: %0.2f; Time Elapsed: %d ms; Dropped: %d frames",
-          float(cam.camera->m_fps), int(cam.camera->m_vc_escape),
-          int(cam.camera->m_dropped_frames));
+          float(CameraWindow::pCamera->m_fps), int(CameraWindow::pCamera->m_vc_escape),
+          int(CameraWindow::pCamera->m_dropped_frames));
     }
   }
 }
@@ -133,8 +133,8 @@ int main(int, char **) {
   runnerParams.imGuiWindowParams.showStatusBar = true;
   // uncomment next line in order to hide the FPS in the status bar
   // runnerParams.imGuiWindowParams.showStatus_Fps = false;
-  runnerParams.callbacks.ShowStatus = [&cameraWindow] {
-    StatusBarGui(cameraWindow);
+  runnerParams.callbacks.ShowStatus = [] {
+    StatusBarGui();
   };
 
   MenuBar(runnerParams);
@@ -205,11 +205,11 @@ int main(int, char **) {
 
   // A Command panel named "Commands" will be placed in "LeftSpace". Its Gui is
   // provided calls "CommandGui"
-  // HelloImGui::DockableWindow cameraWindow;
+  // HelloImGui::DockableWindow pCameraWindow;
   //{
-  //    cameraWindow.label = "Camera";
-  //    cameraWindow.dockSpaceName = "LeftSpace";
-  //    //cameraWindow.GuiFunction = [&appState]() { CommandGui(appState); };
+  //    pCameraWindow.label = "Camera";
+  //    pCameraWindow.dockSpaceName = "LeftSpace";
+  //    //pCameraWindow.GuiFunction = [&appState]() { CommandGui(appState); };
   //}
   // A Command panel named "Commands" will be placed in "LeftSpace". Its Gui is
   // provided calls "CommandGui"

@@ -20,13 +20,12 @@ class CameraWindow {
   CameraWindow() : camcurrent(0) {
     HelloImGui::Log(HelloImGui::LogLevel::Info, "Found %d Cameras",
                     loader.cameras.size());
-    camera = nullptr;
     for (auto const &[key, val] : loader.cameras) {
       names.push_back(std::to_string(key) + " " + val->getDefaultName());
       keys.push_back(key);
       HelloImGui::Log(HelloImGui::LogLevel::Info, "++ %s (%d)",
                       val->getDefaultName().c_str(), key);
-      if (camera == nullptr) camera = val;
+      if (pCamera == nullptr) pCamera = val;
     }
     long pages = sysconf(_SC_PHYS_PAGES);
     long page_size = sysconf(_SC_PAGE_SIZE);
@@ -40,7 +39,7 @@ class CameraWindow {
 
   std::vector<std::string> names;
   std::vector<int> keys;
-  std::shared_ptr<ASICCD> camera;
+  static std::shared_ptr<ASICCD> pCamera;
   int camcurrent;
   std::vector<const char *> items_fmt;
   std::vector<const char *> items_bin;
@@ -59,14 +58,14 @@ class CameraWindow {
       if (ImGui::Combo("Camera", &camcurrent,
                        reinterpret_cast<const char **>(names.data()),
                        names.size())) {
-        if (camera.get() == nullptr) {
+        if (pCamera.get() == nullptr) {
           HelloImGui::Log(HelloImGui::LogLevel::Error, "No Camera was found");
           return;
         }
         HelloImGui::Log(
             HelloImGui::LogLevel::Info, "Selected %s Camera",
             loader.cameras[keys[camcurrent]]->getDefaultName().c_str());
-        camera = loader.cameras[keys[camcurrent]];
+        pCamera = loader.cameras[keys[camcurrent]];
         spdlog::info("Initializeded {} ", __func__);
         spdlog::debug("Selected {} Camera ",
                       loader.cameras[keys[camcurrent]]->getDefaultName());
@@ -78,28 +77,28 @@ class CameraWindow {
       switch (cameraState) {
         case CameraState::Disconnected:
           if (ImGui::Button(ICON_FA_LINK " Connect")) {
-            if (camera.get() == nullptr) {
+            if (pCamera.get() == nullptr) {
               HelloImGui::Log(HelloImGui::LogLevel::Error,
                               "No Camera was found");
               spdlog::error("No Camera was found");
               return;
             }
-            camera->Connect();
+            pCamera->Connect();
             cameraState = CameraState::Connected;
-            camera->CreateControls();
-            camera->RetrieveControls(true);
+            pCamera->CreateControls();
+            pCamera->RetrieveControls(true);
 
             items_fmt.clear();
-            items_fmt.reserve(camera->m_supportedFormat_str.size());
-            for (size_t index = 0; index < camera->m_supportedFormat_str.size();
+            items_fmt.reserve(pCamera->m_supportedFormat_str.size());
+            for (size_t index = 0; index < pCamera->m_supportedFormat_str.size();
                  ++index) {
-              items_fmt.push_back(camera->m_supportedFormat_str[index].c_str());
+              items_fmt.push_back(pCamera->m_supportedFormat_str[index].c_str());
             }
             items_bin.clear();
-            items_bin.reserve(camera->m_supportedBin.size());
-            for (size_t index = 0; index < camera->m_supportedBin.size();
+            items_bin.reserve(pCamera->m_supportedBin.size());
+            for (size_t index = 0; index < pCamera->m_supportedBin.size();
                  ++index) {
-              items_bin.push_back(camera->m_supportedBin[index].c_str());
+              items_bin.push_back(pCamera->m_supportedBin[index].c_str());
             }
 
             HelloImGui::Log(HelloImGui::LogLevel::Info,
@@ -109,39 +108,39 @@ class CameraWindow {
           break;
         case CameraState::Connected:
           if (ImGui::Button(ICON_FA_STOP_CIRCLE " Disconnect")) {
-            camera->Disconnect();
+            pCamera->Disconnect();
             // camera.reset();
             cameraState = CameraState::Disconnected;
             HelloImGui::Log(HelloImGui::LogLevel::Info,
                             "Camera %s (%d) disconnected",
                             names[camcurrent].c_str(), camcurrent);
           }
-          if (camera->is_running) cameraState = CameraState::Running;
+          if (pCamera->is_running) cameraState = CameraState::Running;
           break;
         case CameraState::Running:
           ImGui::BeginDisabled();
           ImGui::Text(ICON_FA_ROCKET " Acquiring");
           ImGui::EndDisabled();
-          if (!camera->is_running) cameraState = CameraState::Connected;
+          if (!pCamera->is_running) cameraState = CameraState::Connected;
           break;
       }
     }
-    if (camera.get() == nullptr) return;
+    if (pCamera.get() == nullptr) return;
     if (names.size() > 0)
       if (ImGui::CollapsingHeader("Camera info",
                                   ImGuiTreeNodeFlags_DefaultOpen))
         guiInfo();
-    if (camera->is_connected) {
+    if (pCamera->is_connected) {
       if (ImGui::CollapsingHeader("Camera Control",
                                   ImGuiTreeNodeFlags_DefaultOpen))
         guiControl();
     }
-    if (camera->is_connected) {
+    if (pCamera->is_connected) {
       if (ImGui::CollapsingHeader("Camera Resolution Control",
                                   ImGuiTreeNodeFlags_DefaultOpen))
         guiResolution();
     }
-    if (camera->is_connected) {
+    if (pCamera->is_connected) {
       if (ImGui::CollapsingHeader(ICON_FA_WRENCH "Configuration",
                                   ImGuiTreeNodeFlags_DefaultOpen))
         guiAcquisition();
@@ -151,20 +150,20 @@ class CameraWindow {
   CameraState cameraState = CameraState::Disconnected;
 
   void guiInfo() {
-    if (camera.get() == nullptr) return;
+    if (pCamera.get() == nullptr) return;
     ImGui::Text("Camera: %s", names[camcurrent].c_str());
-    ImGui::Text("Resolution: %ld x %ld", camera->mCameraInfo.MaxHeight,
-                camera->mCameraInfo.MaxWidth);
+    ImGui::Text("Resolution: %ld x %ld", pCamera->mCameraInfo.MaxHeight,
+                pCamera->mCameraInfo.MaxWidth);
     ImGui::Text("IsColor: %s",
-                camera->mCameraInfo.IsColorCam ? "True" : "False");
-    if (camera->mCameraInfo.IsColorCam)
+                pCamera->mCameraInfo.IsColorCam ? "True" : "False");
+    if (pCamera->mCameraInfo.IsColorCam)
       ImGui::Text("BayerPattern: %s",
-                  ASIHelpers::toString(camera->mCameraInfo.BayerPattern));
-    ImGui::Text("PixelSize: %0.3f", camera->mCameraInfo.PixelSize);
-    ImGui::Text("BitDepth: %d", camera->mCameraInfo.BitDepth);
+                  ASIHelpers::toString(pCamera->mCameraInfo.BayerPattern));
+    ImGui::Text("PixelSize: %0.3f", pCamera->mCameraInfo.PixelSize);
+    ImGui::Text("BitDepth: %d", pCamera->mCameraInfo.BitDepth);
   }
   void guiControl() {
-    for (auto &cap : camera->mControlCaps) {
+    for (auto &cap : pCamera->mControlCaps) {
       if (cap.IsWritable == ASI_FALSE) continue;
       ASI_CONTROL_CAPS_CAST *rcap =
           reinterpret_cast<ASI_CONTROL_CAPS_CAST *>(&cap);
@@ -199,15 +198,15 @@ class CameraWindow {
 
     // const char **items_fmt = reinterpret_cast<const char
     // **>(camera->m_supportedFormat_str.data()) ;
-    if (camera->is_connected) {
+    if (pCamera->is_connected) {
       if (ImGui::Button(ICON_FA_THUMBS_UP " Apply Settings")) {
-        if (!camera->UpdateControls())
+        if (!pCamera->UpdateControls())
           HelloImGui::Log(HelloImGui::LogLevel::Error,
                           "Failed to update settings.");
       }
       ImGui::SameLine();
       if (ImGui::Button(ICON_FA_THUMBS_DOWN " Revert Settings")) {
-        if (!camera->RetrieveControls())
+        if (!pCamera->RetrieveControls())
           HelloImGui::Log(HelloImGui::LogLevel::Error,
                           "Failed to update settings.");
       }
@@ -215,50 +214,50 @@ class CameraWindow {
   }
   void guiResolution() {
     ImGui::Text("Current Resolution {binned}: %dx%d",
-                camera->m_frame[1].CurrentValue / camera->m_frame[1].Bin,
-                camera->m_frame[0].CurrentValue / camera->m_frame[0].Bin);
+                pCamera->m_frame[1].CurrentValue / pCamera->m_frame[1].Bin,
+                pCamera->m_frame[0].CurrentValue / pCamera->m_frame[0].Bin);
     ImGui::Text("Current Offset {binned}: %dx%d",
-                camera->m_frame[1].AxisOffset / camera->m_frame[1].Bin,
-                camera->m_frame[0].AxisOffset / camera->m_frame[0].Bin);
-    if (camera->is_running) ImGui::BeginDisabled();
+                pCamera->m_frame[1].AxisOffset / pCamera->m_frame[1].Bin,
+                pCamera->m_frame[0].AxisOffset / pCamera->m_frame[0].Bin);
+    if (pCamera->is_running) ImGui::BeginDisabled();
     ImGui::SliderInt(
-        "Width (X)", reinterpret_cast<int *>(&camera->m_frame[1].CurrentValue),
-        camera->m_frame[1].MinValue,
-        camera->m_frame[1].MaxValue - camera->m_frame[1].AxisOffset);
+        "Width (X)", reinterpret_cast<int *>(&pCamera->m_frame[1].CurrentValue),
+        pCamera->m_frame[1].MinValue,
+        pCamera->m_frame[1].MaxValue - pCamera->m_frame[1].AxisOffset);
     ImGui::SliderInt(
-        "Height (Y)", reinterpret_cast<int *>(&camera->m_frame[0].CurrentValue),
-        camera->m_frame[0].MinValue,
-        camera->m_frame[0].MaxValue - camera->m_frame[0].AxisOffset);
+        "Height (Y)", reinterpret_cast<int *>(&pCamera->m_frame[0].CurrentValue),
+        pCamera->m_frame[0].MinValue,
+        pCamera->m_frame[0].MaxValue - pCamera->m_frame[0].AxisOffset);
     ImGui::SliderInt(
-        "Offset (X)", reinterpret_cast<int *>(&camera->m_frame[1].AxisOffset),
-        camera->m_frame[1].MinValue,
-        camera->m_frame[1].MaxValue - camera->m_frame[1].CurrentValue);
+        "Offset (X)", reinterpret_cast<int *>(&pCamera->m_frame[1].AxisOffset),
+        pCamera->m_frame[1].MinValue,
+        pCamera->m_frame[1].MaxValue - pCamera->m_frame[1].CurrentValue);
     ImGui::SliderInt(
-        "Offset (Y)", reinterpret_cast<int *>(&camera->m_frame[0].AxisOffset),
-        camera->m_frame[0].MinValue,
-        camera->m_frame[0].MaxValue - camera->m_frame[0].CurrentValue);
+        "Offset (Y)", reinterpret_cast<int *>(&pCamera->m_frame[0].AxisOffset),
+        pCamera->m_frame[0].MinValue,
+        pCamera->m_frame[0].MaxValue - pCamera->m_frame[0].CurrentValue);
 
     static int bin = 0, fmt = 0;
     if (ImGui::Combo("Format", &fmt, &items_fmt[0], items_fmt.size())) {
       HelloImGui::Log(
           HelloImGui::LogLevel::Info, "Format %s",
-          ASIHelpers::toPrettyString(camera->m_supportedFormat[fmt]));
-      camera->mCurrentStillFormat = camera->m_supportedFormat[fmt];
+          ASIHelpers::toPrettyString(pCamera->m_supportedFormat[fmt]));
+      pCamera->mCurrentStillFormat = pCamera->m_supportedFormat[fmt];
     }
     if (ImGui::Combo("Binning", &bin, &items_bin[0], items_bin.size())) {
       int number = 0;
-      std::from_chars(camera->m_supportedBin[bin].data(),
-                      camera->m_supportedBin[bin].data() +
-                          camera->m_supportedBin[bin].size(),
+      std::from_chars(pCamera->m_supportedBin[bin].data(),
+                      pCamera->m_supportedBin[bin].data() +
+                          pCamera->m_supportedBin[bin].size(),
                       number);
       HelloImGui::Log(HelloImGui::LogLevel::Info, "Binning %d", number);
-      camera->SetCCDBin(number);
+      pCamera->SetCCDBin(number);
     }
 
-    if (camera->is_running) ImGui::EndDisabled();
+    if (pCamera->is_running) ImGui::EndDisabled();
   }
   void guiAcquisition() {
-    if (camera->is_running) ImGui::BeginDisabled();
+    if (pCamera->is_running) ImGui::BeginDisabled();
     ImGui::SliderInt("Buffer Size", &mSysMem, 256, mTSysMem * 0.6);
     ImGui::InputText("Directory", &selectedFilename[0], 512);
     ImGui::SameLine();
@@ -266,7 +265,7 @@ class CameraWindow {
       ifd::FileDialog::Instance().Open("DirectoryOpenDialog",
                                        "Open a directory", "");
     }
-    if (camera->is_running) ImGui::EndDisabled();
+    if (pCamera->is_running) ImGui::EndDisabled();
     if (ifd::FileDialog::Instance().IsDone("DirectoryOpenDialog")) {
       if (ifd::FileDialog::Instance().HasResult())
         selectedFilename = ifd::FileDialog::Instance().GetResult().string();
@@ -274,20 +273,21 @@ class CameraWindow {
                       selectedFilename.c_str());
       ifd::FileDialog::Instance().Close();
     }
-    if (!camera->is_running) {
+    if (!pCamera->is_running) {
       if (ImGui::Button(ICON_FA_TV " Capture Frame")) {
-        camera->DoCaptureHelper();
+        pCamera->DoCaptureHelper();
       }
       ImGui::SameLine();
       if (ImGui::Button(ICON_FA_ROCKET " Capture Video")) {
-        camera->DoVCaptureHelper(mSysMem);
+        pCamera->DoVCaptureHelper(mSysMem);
       }
     } else {
       if (ImGui::Button(ICON_FA_STOP " Abort")) {
-        camera->AbortExposure();
+        pCamera->AbortExposure();
       }
     }
   }
 };
+std::shared_ptr<ASICCD> CameraWindow::pCamera = nullptr;
 
 #endif

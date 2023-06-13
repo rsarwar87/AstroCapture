@@ -35,6 +35,7 @@
 #include <thread>
 #include <tuple>
 #include <vector>
+#include <mutex>
 
 #include "asi_helpers.hpp"
 #include "circular_buffer.hpp"
@@ -61,8 +62,24 @@ typedef struct _STILL_IMAGE_STRUCT {
   std::string format;
   std::array<size_t, 3> dim;
 
+  std::mutex mutex;
   std::atomic_bool is_new = false;
 } STILL_IMAGE_STRUCT;
+typedef struct _STILL_STREAMING_STRUCT {
+  std::shared_ptr<Circular_Buffer<uint8_t>>
+      buffer = nullptr;  // using a smart pointer is safer (and we don't
+  ASI_IMG_TYPE currentFormat;
+  size_t size = 0;
+  size_t ch = 1;
+  size_t byte_channel = 1;
+  std::string format;
+  std::array<size_t, 3> dim;
+
+  std::atomic_bool is_processing = false;
+  std::atomic_bool is_recording = false;
+  std::atomic_bool is_saving = false;
+  std::atomic_bool is_active = false;
+} STILL_STREAMING_STRUCT;
 
 typedef struct _ASI_CONTROL_CAPS_CAST {
   char Name[64];          // the name of the Control like Exposure, Gain etc..
@@ -340,8 +357,8 @@ class ASIBase {
     size_t nTotalBytes = std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1] *
                          std::get<1>(imgFormat)[2] * std::get<2>(imgFormat);
 
-    m_circular_buffer.reset();
-    m_circular_buffer = std::make_shared<Circular_Buffer<uint8_t>>(
+    streamingFrames.buffer.reset();
+    streamingFrames.buffer = std::make_shared<Circular_Buffer<uint8_t>>(
         max_buffer_size * 1024 * 1024 / nTotalBytes, nTotalBytes);
 
     while (true) {
@@ -366,7 +383,7 @@ class ASIBase {
       }
 
       uint8_t *targetFrame =
-          m_circular_buffer->get_new_buffer();  // PrimaryCCD.getFrameBuffer();
+          streamingFrames.buffer->get_new_buffer();  // PrimaryCCD.getFrameBuffer();
       if (targetFrame == nullptr) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         continue;
@@ -412,6 +429,7 @@ class ASIBase {
       spdlog::warn("Previous frame not cleared, waiting 0.5 sec for things to settle...");
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
+    stillFrame.mutex.lock();
     int32_t expo_ms = mExposureCap->current_value;
     spdlog::debug("Starting {} msec exposure...", expo_ms);
     HelloImGui::Log(HelloImGui::LogLevel::Debug, "Starting %d msec exposure...",
@@ -519,6 +537,7 @@ class ASIBase {
     stillFrame.format = "";
     stillFrame.dim = {std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
                       std::get<1>(imgFormat)[2]};
+    stillFrame.mutex.unlock();
     stillFrame.is_new = true;
 
     is_running = false;
@@ -659,15 +678,17 @@ class ASIBase {
                               _auto ? ASI_TRUE : ASI_FALSE);
   }
 
+  STILL_IMAGE_STRUCT stillFrame;
+  STILL_STREAMING_STRUCT streamingFrames;
  public:
   STILL_IMAGE_STRUCT * getImageFramePtr() {return &stillFrame;};
+  STILL_STREAMING_STRUCT * getStreamingFramePtr() {return &streamingFrames;};
   std::string mCameraName;
   size_t max_buffer_size = 512;
   uint32_t mCameraID;
   ASI_CAMERA_INFO mCameraInfo;
   uint8_t mExposureRetry{0};
   ASI_IMG_TYPE mCurrentStillFormat;
-  STILL_IMAGE_STRUCT stillFrame;
 
   std::atomic_bool is_running;
   std::atomic_bool is_connected;
@@ -679,16 +700,11 @@ class ASIBase {
   std::atomic_uint32_t m_expo_escape;
 
   std::array<RESOLUTION_STRUCT, 2> m_frame;
-  std::shared_ptr<Circular_Buffer<uint8_t>>
-      m_circular_buffer;  // using a smart pointer is safer (and we don't
   std::vector<std::string> m_supportedFormat_str;
   std::vector<ASI_IMG_TYPE> m_supportedFormat;
   std::vector<std::string> m_supportedBin;
 
  public:
-  std::shared_ptr<Circular_Buffer<uint8_t>> getCircularBuffer() {
-    return m_circular_buffer;
-  }
   std::vector<ASI_CONTROL_CAPS> mControlCaps;
   ASI_CONTROL_CAPS_CAST *mExposureCap;
   ASI_CONTROL_CAPS_CAST mBandwidthCap;
