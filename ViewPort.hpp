@@ -14,6 +14,7 @@
 #include "imgui_md_wrapper/imgui_md_wrapper.h"
 #include "immvision/immvision.h"
 #include "inspector.hpp"
+#include <iostream>
 
 using namespace ImmVision;
 class ViewPort : public IVInspector {
@@ -57,10 +58,16 @@ class ViewPort : public IVInspector {
                   doprocess = true;
                 }
               }
-              if (doprocess)
+              if (doprocess && ptrS->buffer != nullptr)
               {
-                auto bufImg = ptrS->buffer->dequeue();
-                ptrS->buffer->move_trail();
+                auto buf = ptrS->buffer->dequeue();
+                if (buf != nullptr)
+                {
+                  spdlog::info("Got New VFrame, {} KB {} CH, {}x{}",ptrS->size/1024,ptrS->ch, ptrS->dim[0], ptrS->dim[1]);
+                  mImage = cv::Mat(ptr->dim[0], ptr->dim[1],  CV_MAKETYPE((ptr->byte_channel-1)*2,ptr->ch), buf);
+
+                  ptrS->buffer->move_trail();
+                }
               }
               
             }
@@ -68,7 +75,9 @@ class ViewPort : public IVInspector {
         } else if (ptr->is_new) {
           if (ptr->mutex.try_lock())
           {
-            spdlog::info("Got New Still Frame");
+            u_int8_t* buf = ptr->buffer.get();
+            spdlog::debug("Got New Still Frame, {} KB {} CH, {}x{}",ptr->size/1024,ptr->ch, ptr->dim[0], ptr->dim[1]);
+            mImage = cv::Mat(ptr->dim[0], ptr->dim[1],  CV_MAKETYPE((ptr->byte_channel-1)*2,ptr->ch), buf);
             ptr->is_new = false;
             ptr->mutex.unlock();
           }

@@ -31,11 +31,11 @@
 #include <cmath>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <tuple>
 #include <vector>
-#include <mutex>
 
 #include "asi_helpers.hpp"
 #include "circular_buffer.hpp"
@@ -66,8 +66,8 @@ typedef struct _STILL_IMAGE_STRUCT {
   std::atomic_bool is_new = false;
 } STILL_IMAGE_STRUCT;
 typedef struct _STILL_STREAMING_STRUCT {
-  std::shared_ptr<Circular_Buffer<uint8_t>>
-      buffer = nullptr;  // using a smart pointer is safer (and we don't
+  std::shared_ptr<Circular_Buffer<uint8_t>> buffer =
+      nullptr;  // using a smart pointer is safer (and we don't
   ASI_IMG_TYPE currentFormat;
   size_t size = 0;
   size_t ch = 1;
@@ -360,7 +360,14 @@ class ASIBase {
     streamingFrames.buffer.reset();
     streamingFrames.buffer = std::make_shared<Circular_Buffer<uint8_t>>(
         max_buffer_size * 1024 * 1024 / nTotalBytes, nTotalBytes);
+    streamingFrames.size = nTotalBytes;
+    streamingFrames.ch = std::get<1>(imgFormat)[2];
+    streamingFrames.byte_channel = std::get<2>(imgFormat);
+    streamingFrames.format = "";
+    streamingFrames.dim = {std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
+                           std::get<1>(imgFormat)[2]};
 
+    streamingFrames.is_active = true;
     while (true) {
       if (do_abort) {
         spdlog::info("aborting .");
@@ -383,7 +390,8 @@ class ASIBase {
       }
 
       uint8_t *targetFrame =
-          streamingFrames.buffer->get_new_buffer();  // PrimaryCCD.getFrameBuffer();
+          streamingFrames.buffer
+              ->get_new_buffer();  // PrimaryCCD.getFrameBuffer();
       if (targetFrame == nullptr) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         continue;
@@ -396,11 +404,14 @@ class ASIBase {
                            ASIHelpers::toString(ret));
           StopVideoCapture();
           is_running = false;
+          streamingFrames.is_active = false;
           return false;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         continue;
       }
+      if (stillFrame.currentFormat == ASI_IMG_RGB24)
+        sort_rgb24(targetFrame, imgFormat);
 
       count++;
 
@@ -410,6 +421,7 @@ class ASIBase {
     }
     spdlog::info("Capture completed .");
     is_running = false;
+    streamingFrames.is_active = false;
 
     return true;
   }
@@ -423,10 +435,11 @@ class ASIBase {
 
     if (!SetCCDROI()) return false;
     if (!UpdateExposure()) return false;
-    if (stillFrame.is_new)
-    {
+    if (stillFrame.is_new) {
       stillFrame.is_new = false;
-      spdlog::warn("Previous frame not cleared, waiting 0.5 sec for things to settle...");
+      spdlog::warn(
+          "Previous frame not cleared, waiting 0.5 sec for things to "
+          "settle...");
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     stillFrame.mutex.lock();
@@ -512,21 +525,7 @@ class ASIBase {
       return 0;
     }
     if (stillFrame.currentFormat == ASI_IMG_RGB24)
-    {
-        uint8_t *dstR = stillFrame.buffer.get();
-        uint8_t *dstG = stillFrame.buffer.get() + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1];
-        uint8_t *dstB = stillFrame.buffer.get() + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1] * 2;
-
-        const uint8_t *src = stillFrame.buffer.get();
-        const uint8_t *end = stillFrame.buffer.get() + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1] * 3;
-
-        while (src != end)
-        {
-            *dstB++ = *src++;
-            *dstG++ = *src++;
-            *dstR++ = *src++;
-        }
-    }
+      sort_rgb24(stillFrame.buffer.get(), imgFormat);
     spdlog::debug(
         "Downloaded exposure... ({}x{} #{} channels, {} bytes; total: {}) ",
         std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
@@ -543,6 +542,25 @@ class ASIBase {
     is_running = false;
 
     return true;
+  }
+  void sort_rgb24(
+      uint8_t *ptr,
+      std::tuple<ASIHelpers::PIXEL_FORMAT, std::array<uint16_t, 3>, size_t>
+          imgFormat) {
+    uint8_t *dstR = ptr;
+    uint8_t *dstG = ptr + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1];
+    uint8_t *dstB =
+        ptr + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1] * 2;
+
+    const uint8_t *src = ptr;
+    const uint8_t *end =
+        ptr + std::get<1>(imgFormat)[0] * std::get<1>(imgFormat)[1] * 3;
+
+    while (src != end) {
+      *dstB++ = *src++;
+      *dstG++ = *src++;
+      *dstR++ = *src++;
+    }
   }
   bool SetCCDBin(uint8_t bin) {
     if (bin < 1) {
@@ -680,9 +698,10 @@ class ASIBase {
 
   STILL_IMAGE_STRUCT stillFrame;
   STILL_STREAMING_STRUCT streamingFrames;
+
  public:
-  STILL_IMAGE_STRUCT * getImageFramePtr() {return &stillFrame;};
-  STILL_STREAMING_STRUCT * getStreamingFramePtr() {return &streamingFrames;};
+  STILL_IMAGE_STRUCT *getImageFramePtr() { return &stillFrame; };
+  STILL_STREAMING_STRUCT *getStreamingFramePtr() { return &streamingFrames; };
   std::string mCameraName;
   size_t max_buffer_size = 512;
   uint32_t mCameraID;
