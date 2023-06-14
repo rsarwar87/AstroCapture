@@ -63,7 +63,7 @@ class ViewPort : public IVInspector {
                 auto buf = ptrS->buffer->dequeue();
                 if (buf != nullptr)
                 {
-                  spdlog::info("Got New VFrame, {} KB {} CH, {}x{}",ptrS->size/1024,ptrS->ch, ptrS->dim[0], ptrS->dim[1]);
+                  spdlog::debug("Got New VFrame, {} KB {} CH, {}x{}",ptrS->size/1024,ptrS->ch, ptrS->dim[0], ptrS->dim[1]);
                   mImage = cv::Mat(ptr->dim[0], ptr->dim[1],  CV_MAKETYPE((ptr->byte_channel-1)*2,ptr->ch), buf);
 
                   ptrS->buffer->move_trail();
