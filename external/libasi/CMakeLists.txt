@@ -39,6 +39,11 @@ if (UNIX AND NOT WIN32)
   endif ()
 
 endif ()
+#
+install (
+  FILES ASICamera2.h 
+  DESTINATION include/libasi
+)
 
 # Install library
 install_imported (
