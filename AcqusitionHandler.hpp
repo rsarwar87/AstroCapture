@@ -27,6 +27,7 @@ class AcqManager {
 
  protected:
   cv::Mat mImage;
+  std::mutex updatingFrame;
   int targetFPS = 0;
   int recordFPS = 1;
 
@@ -87,7 +88,6 @@ class AcqManager {
   Timer timer;
   bool abort_view = false;
 
-  std::mutex updatingFrame;
   std::thread recordingThread;
   std::thread viewingThread;
   void updateImage(auto ptr, auto buf, std::string str = "StillFrame") {
