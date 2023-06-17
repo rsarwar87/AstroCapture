@@ -368,6 +368,7 @@ class ASIBase {
                            std::get<1>(imgFormat)[2]};
 
     streamingFrames.is_active = true;
+    int droppedcount = 0;
     while (true) {
       if (do_abort) {
         spdlog::info("aborting .");
@@ -377,7 +378,6 @@ class ASIBase {
         return true;
       }
 
-      int droppedcount = 0;
       ASIGetDroppedFrames(mCameraID, &droppedcount);
       m_dropped_frames = droppedcount;
       if (timer.Finish() > 1000) {
@@ -400,13 +400,15 @@ class ASIBase {
       ret = ASIGetVideoData(mCameraID, targetFrame, nTotalBytes, waitMS);
       if (ret != ASI_SUCCESS) {
         if (ret != ASI_ERROR_TIMEOUT) {
-          spdlog::critical("ASIGetVideoData status timed out (%s)",
+          spdlog::critical("ASIGetVideoData status timed out ({})",
                            ASIHelpers::toString(ret));
           StopVideoCapture();
           is_running = false;
           streamingFrames.is_active = false;
           return false;
         }
+        spdlog::critical("ASIGetVideoData status timed out ({})",
+                           ASIHelpers::toString(ret));
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         continue;
       }
