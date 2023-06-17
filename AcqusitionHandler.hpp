@@ -16,11 +16,12 @@ class AcqManager {
   AcqManager() {
     abort_view = false;
     viewingThread = std::thread(AcqManager::HelperUpdateView, this);
+    recordingThread = std::thread(AcqManager::HelperRecordStream, this);
   }
   ~AcqManager() {
     abort_view = true;
     spdlog::info("Waiting for AcqManager threads to end");
-    // recordingThread.join();
+    recordingThread.join();
     viewingThread.join();
     spdlog::info("AcqManager threads to closed");
   }
@@ -31,15 +32,18 @@ class AcqManager {
   int targetFPS = 0;
   int recordFPS = 1;
 
-  std::atomic_bool has_new_frame = false;
+  static void HelperRecordStream(AcqManager* acq) {
+    spdlog::info("UpdateView Thread started");
+    acq->RecordStream();
+  }
   static void HelperUpdateView(AcqManager* acq) {
     spdlog::info("UpdateView Thread started");
     acq->UpdateView();
   }
 
+  void RecordStream() {
+  }
   void UpdateView() {
-    std::string zoomKey = "zk";
-    // process
     abort_view = false;
     while (!abort_view) {
       if (CameraWindow::pCamera != nullptr) {
@@ -55,9 +59,6 @@ class AcqManager {
                   if (ptrS->buffer != nullptr) {
                     auto buf = ptrS->buffer->last();
                     if (buf != nullptr) {
-                      spdlog::debug("Got New VFrame, {} KB {} CH, {}x{}",
-                                   ptrS->size / 1024, ptrS->ch, ptrS->dim[0],
-                                   ptrS->dim[1]);
                       updateImage(ptr, buf, "VideoFrame");
                     }
                   }
