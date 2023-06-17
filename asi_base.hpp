@@ -75,9 +75,8 @@ typedef struct _STILL_STREAMING_STRUCT {
   std::string format;
   std::array<size_t, 3> dim;
 
-  std::atomic_bool is_processing = false;
+  std::atomic_bool do_record = false;
   std::atomic_bool is_recording = false;
-  std::atomic_bool is_saving = false;
   std::atomic_bool is_active = false;
 } STILL_STREAMING_STRUCT;
 
@@ -349,8 +348,8 @@ class ASIBase {
 
     timer.Start();
     escaped.Start();
-    is_running = true;
     is_still = false;
+    is_running = true;
     size_t count = 0;
     int waitMS = (mExposureCap->current_value) * 2 + 500;
     auto imgFormat = getImageFormat(mCurrentStillFormat);
@@ -423,6 +422,9 @@ class ASIBase {
     }
     spdlog::info("Capture completed .");
     is_running = false;
+    streamingFrames.do_record = false;
+    while (streamingFrames.is_recording) 
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
     streamingFrames.is_active = false;
 
     return true;
