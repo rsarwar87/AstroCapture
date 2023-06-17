@@ -1,27 +1,106 @@
 #ifndef __AcquisitionManager__
 #define __AcquisitionManager__
 //#include <opencv2/opencv.hpp>
-#include <GL/gl.h>
+
+#include <mutex>
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+#include <thread>
 
 #include "hello_imgui/hello_imgui.h"
 #include "imgui_md_wrapper/imgui_md_wrapper.h"
 
 class AcqManager {
  public:
-  AcqManager() {}
-  void gui() { guiHelp(); }
+  AcqManager() {
+    abort_view = false;
+    viewingThread = std::thread(AcqManager::HelperUpdateView, this);
+  }
+  ~AcqManager() {
+    abort_view = true;
+    spdlog::info("Waiting for AcqManager threads to end");
+    // recordingThread.join();
+    viewingThread.join();
+    spdlog::info("AcqManager threads to closed");
+  }
 
-  std::tuple<intptr_t, ImVec2> getTexturePtr()
-  {
-      return std::make_tuple(static_cast<intptr_t>(texture), dim);
+ protected:
+  cv::Mat mImage;
+  int targetFPS = 0;
+  int recordFPS = 1;
+
+  std::atomic_bool has_new_frame = false;
+  static void HelperUpdateView(AcqManager* acq) {
+    spdlog::info("UpdateView Thread started");
+    acq->UpdateView();
+  }
+
+  void UpdateView() {
+    std::string zoomKey = "zk";
+    // process
+    abort_view = false;
+    while (!abort_view) {
+      if (CameraWindow::pCamera != nullptr) {
+        if (CameraWindow::pCamera->is_connected) {
+          auto ptr = CameraWindow::pCamera->getImageFramePtr();
+          if (CameraWindow::pCamera->is_running) {
+            while (!CameraWindow::pCamera->is_still) {
+              auto ptrS = CameraWindow::pCamera->getStreamingFramePtr();
+              if (ptrS->is_active) {
+                if (targetFPS == 0 ||
+                    timer.Finish() > (1 / (targetFPS * 10)) * 1000) {
+                  timer.Start();
+                  if (ptrS->buffer != nullptr) {
+                    auto buf = ptrS->buffer->last();
+                    if (buf != nullptr) {
+                      spdlog::debug("Got New VFrame, {} KB {} CH, {}x{}",
+                                   ptrS->size / 1024, ptrS->ch, ptrS->dim[0],
+                                   ptrS->dim[1]);
+                      updateImage(ptr, buf, "VideoFrame");
+                    }
+                  }
+                }
+              } else {
+                std::this_thread::sleep_for(
+                    std::chrono::milliseconds(((1 / (targetFPS * 10)) * 1000) -
+                                              timer.Finish()) *
+                    0.75);
+              }
+              std::this_thread::sleep_for(std::chrono::milliseconds(1));
+              if (abort_view) break;
+            }
+          } else if (ptr->is_new) {
+            if (ptr->mutex.try_lock()) {
+              u_int8_t* buf = ptr->buffer.get();
+              updateImage(ptr, buf);
+              ptr->is_new = false;
+            }
+          }
+        }
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
   }
 
  private:
-  cv::Mat image;
-  GLuint texture;
-  ImVec2 dim;
+  Timer timer;
+  bool abort_view = false;
 
-  void guiHelp() {}
+  std::mutex updatingFrame;
+  std::thread recordingThread;
+  std::thread viewingThread;
+  void updateImage(auto ptr, auto buf, std::string str = "StillFrame") {
+    if (updatingFrame.try_lock())
+    {
+      spdlog::debug("Got new {}, {} KB {} CH, {}x{}", str,
+                            ptr->size / 1024, ptr->ch, ptr->dim[0],
+                            ptr->dim[1]);
+      mImage = cv::Mat(ptr->dim[0], ptr->dim[1],
+                     CV_MAKETYPE((ptr->byte_channel - 1) * 2, ptr->ch), buf);
+      updatingFrame.unlock();
+    }
+  }
 };
 
 #endif
