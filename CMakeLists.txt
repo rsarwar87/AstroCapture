@@ -32,8 +32,20 @@ set(IMGUI_BUNDLE_FETCH_OPENCV OFF)
 
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_module/")
 include(GNUInstallDirs)
-find_package(ASI REQUIRED)
-find_package(spdlog REQUIRED)
+#find_package(ASI REQUIRED)
+#find_package(spdlog REQUIRED)
+find_package(PkgConfig REQUIRED)
+#list(APPEND PKG_CONFIG_EXECUTABLE "--static")
+    pkg_check_modules(libusb REQUIRED libusb-1.0)
+    pkg_check_modules(libudev REQUIRED libudev)
+add_subdirectory(external/libasi)
+add_subdirectory(external/libfmt)
+add_subdirectory(external/spdlog)
+
+#ADD_LIBRARY(libudev SHARED IMPORTED)
+#SET_TARGET_PROPERTIES(libudev PROPERTIES IMPORTED_LOCATION /usr/./lib/x86_64-linux-gnu/libudev.so)
+#ADD_LIBRARY(libusb STATIC IMPORTED)
+#SET_TARGET_PROPERTIES(libusb PROPERTIES IMPORTED_LOCATION /usr/./lib/x86_64-linux-gnu/libusb-1.0.a)
 
 ##########################################################
 # Build your app
@@ -44,7 +56,7 @@ FILE(GLOB sources_imgui_astrocapture
     ${CMAKE_CURRENT_LIST_DIR}/*.cpp
     )
 imgui_bundle_add_app(astrocapture ${sources_imgui_astrocapture})
-target_link_libraries(astrocapture PRIVATE ASICamera2 spdlog fmt)
+target_link_libraries(astrocapture PRIVATE ASICamera spdlog fmt udev usb-1.0)
 
 # Now you can build your app with
 #     mkdir build && cd build && cmake .. && cmake --build .
