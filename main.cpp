@@ -279,7 +279,15 @@ int main(int, char **) {
   addons.withMarkdown = true;
   addons.withImplot = true;
   addons.withTexInspect = true;
+          // Also clear ImmVision cache at exit (and before OpenGl is uninitialized)
+  auto oldBeforeExitCopy = runnerParams.callbacks.BeforeExit;
+  auto newBeforeExit = [&runnerParams, oldBeforeExitCopy]() {
+      if (oldBeforeExitCopy)
+          oldBeforeExitCopy();
+      ImmVision::ClearTextureCache();
+  };
+  runnerParams.callbacks.BeforeExit = newBeforeExit;
   ImmApp::Run(runnerParams, addons);
 
   return 0;
-}
+u
