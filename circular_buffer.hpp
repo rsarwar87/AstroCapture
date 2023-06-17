@@ -6,9 +6,9 @@
 //-------------------------------------------------------------------
 #include <spdlog/spdlog.h>
 
-#include <memory>
-#include <atomic>
 #include <array>
+#include <atomic>
+#include <memory>
 #include <vector>
 
 // Array-based push-only circular buffer.
@@ -22,38 +22,29 @@
 // buff.push( 4 ); // 2 3 4
 // buff.push( 5 ); // 3 4 5
 
-//for( int i : buff )
-//  std::cout << i << std::endl;
+// for( int i : buff )
+//   std::cout << i << std::endl;
 
 template <class T, std::size_t SIZE>
-class CircularBuffer
-{
-public:
-  static_assert( SIZE > 0 );
+class CircularBuffer {
+ public:
+  static_assert(SIZE > 0);
 
-  CircularBuffer() {
-    mBuffer.resize(SIZE);
-  }
-  void push( const T & value )
-  {
-
+  CircularBuffer() { mBuffer.resize(SIZE); }
+  void push(const T& value) {
     mBuffer.erase(mBuffer.begin());
     mBuffer.push_back(value);
   }
 
-  T* get_buffer()
-  {
-    return mBuffer.data();
-  }
+  T* get_buffer() { return mBuffer.data(); }
 
-  void reset()
-  {
+  void reset() {
     mBuffer.resize(0);
     mBuffer.resize(SIZE);
   }
 
-private:
-  enum {                   mCapacity     = SIZE };
+ private:
+  enum { mCapacity = SIZE };
   std::vector<T> mBuffer;
 };
 //-------------------------------------------------------------------
@@ -66,13 +57,14 @@ class Circular_Buffer {
 
   std::unique_ptr<T[]> buffer;  // using a smart pointer is safer (and we don't
                                 // have to implement a destructor)
-  std::atomic<std::size_t>  head = 0;              // size_t is an unsigned long
-  std::atomic<std::size_t>  tail = 0;
-  std::atomic<std::size_t>  m_ltail = 0;
+  std::atomic<std::size_t> head = 0;  // size_t is an unsigned long
+  std::atomic<std::size_t> tail = 0;
+  std::atomic<std::size_t> m_ltail = 0;
   const size_t max_size;
   const size_t n_bytes;
   bool is_done = true;
   T* empty_item;  // we will use this to clear data
+  bool logged = false;
  public:
   //---------------------------------------------------------------
   // Circular_Buffer - Public Methods
@@ -96,9 +88,13 @@ class Circular_Buffer {
   T* get_new_buffer() {
     // if buffer is full, throw an error
     if (is_full()) {
-      spdlog::critical("Streaming buffer is full");
-      return nullptr;
+      if (!logged) {
+        spdlog::critical("Streaming buffer is full, overwriting last buffer");
+        logged = true;
+      }
+      return last();
     }
+    logged = false;
 
     // insert item at back of buffer
     T* item = &buffer[tail * n_bytes];
@@ -111,12 +107,16 @@ class Circular_Buffer {
   }
 
   // Remove an item from this circular buffer and return it.
-  T* dequeue() {
+  T* dequeue(bool is_vPort = false) {
     // if buffer is empty, throw an error
     if (is_empty()) {
-      spdlog::critical("buffer is empty");
+      if (!logged) {
+        spdlog::critical("buffer is empty");
+        logged = true;
+      }
       return empty_item;
     }
+    logged = false;
     // get item at head
     T* item = &buffer[head * n_bytes];
 
@@ -125,16 +125,14 @@ class Circular_Buffer {
     // buffer[head] = empty_item;
 
     // move head foward
-    is_done = false;
-    //head = (head + 1) % max_size;
+    is_done = is_vPort;
+    // head = (head + 1) % max_size;
 
     // return item
     return item;
   }
-  void move_trail()
-  {
-    if (!is_done)
-    {
+  void move_trail() {
+    if (!is_done) {
       is_done = true;
       head = (head + 1) % max_size;
     }
@@ -142,31 +140,28 @@ class Circular_Buffer {
 
   // Return the item at the front/end of this circular buffer.
   T* peek() { return &buffer[head * n_bytes]; }
-  T* last() { return &buffer[m_ltail * n_bytes]; }
+  T* last() {
+    return &buffer[m_ltail == 0 ? 0 : (m_ltail * n_bytes) - n_bytes];
+  }
 
   // Return true if this circular buffer is empty, and false otherwise.
   bool is_empty() { return occupancy() == 0; }
 
   // Return true if this circular buffer is full, and false otherwise.
-  bool is_full() { return  occupancy() == max_size - 1;}
+  bool is_full() { return occupancy() == max_size - 1; }
 
   // Return the size of this circular buffer.
-  std::array<size_t,2> get_head_tail() {
-    return std::array<size_t,2> {head, tail};
+  std::array<size_t, 2> get_head_tail() {
+    return std::array<size_t, 2>{head, tail};
   }
   // Return the number of empty slots on the buffer.
-  size_t vacancy() {
-    return max_size - occupancy();
-  }
+  size_t vacancy() { return max_size - occupancy(); }
   // Return the number of populated slots on the buffer.
   size_t occupancy() {
     if (tail >= head) return tail - head;
     return max_size - head + tail;
   }
-  float update_fullness()
-  {
-    return float(occupancy())/float(max_size);
-  }
+  float update_fullness() { return float(occupancy()) / float(max_size); }
 };
 
 #endif
