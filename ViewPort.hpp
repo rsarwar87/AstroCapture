@@ -3,10 +3,8 @@
 #include <spdlog/spdlog.h>
 
 #include <filesystem>
+#include <iostream>
 #include <memory>
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/imgproc.hpp>
 
 #include "AcqusitionHandler.hpp"
 #include "CameraWindow.hpp"
@@ -14,18 +12,16 @@
 #include "imgui_md_wrapper/imgui_md_wrapper.h"
 #include "immvision/immvision.h"
 #include "inspector.hpp"
-#include <iostream>
 
 using namespace ImmVision;
-class ViewPort : public IVInspector {
+class ViewPort : public IVInspector, public AcqManager {
  public:
-  ViewPort(std::shared_ptr<AcqManager> _acqManage) : acqManage(_acqManage) {}
+  ViewPort() {
+    mImageParams.Params.RefreshImage = true;
+  }
   void gui() { guiHelp(); }
 
  private:
-  cv::Mat mImage;
-  Timer timer;
-  std::shared_ptr<AcqManager> acqManage;
   void guiHelp() {
     static bool is_first = false;
     if (!is_first) {
@@ -33,60 +29,12 @@ class ViewPort : public IVInspector {
       is_first = true;
       Inspector_Show(true);
     } else {
-      UpdateInspector();
+      //UpdateView();
+      updatingFrame.lock();
       Inspector_Show(true, &mImage);
+      updatingFrame.unlock();
     }
     GuiSobelParams();
-  }
-  void UpdateInspector() {
-    std::string zoomKey = "zk";
-    // process
-    if (CameraWindow::pCamera != nullptr) {
-      if (CameraWindow::pCamera->is_connected) {
-        auto ptr = CameraWindow::pCamera->getImageFramePtr();
-        if (CameraWindow::pCamera->is_running) {
-          if (!CameraWindow::pCamera->is_still) {
-            auto ptrS = CameraWindow::pCamera->getStreamingFramePtr();
-            if (ptrS->is_active)
-            {
-              bool doprocess = true;
-              if (mImageParams.targetFPS > 0)
-              {
-                if (timer.Finish() > (1/(mImageParams.targetFPS*10))*1000)
-                {
-                  timer.Start();
-                  doprocess = true;
-                }
-              }
-              if (doprocess && ptrS->buffer != nullptr)
-              {
-                auto buf = ptrS->buffer->dequeue();
-                if (buf != nullptr)
-                {
-                  spdlog::debug("Got New VFrame, {} KB {} CH, {}x{}",ptrS->size/1024,ptrS->ch, ptrS->dim[0], ptrS->dim[1]);
-                  mImage = cv::Mat(ptr->dim[0], ptr->dim[1],  CV_MAKETYPE((ptr->byte_channel-1)*2,ptr->ch), buf);
-
-                  ptrS->buffer->move_trail();
-                }
-              }
-              
-            }
-          }
-        } else if (ptr->is_new) {
-          if (ptr->mutex.try_lock())
-          {
-            u_int8_t* buf = ptr->buffer.get();
-            spdlog::debug("Got New Still Frame, {} KB {} CH, {}x{}",ptr->size/1024,ptr->ch, ptr->dim[0], ptr->dim[1]);
-            mImage = cv::Mat(ptr->dim[0], ptr->dim[1],  CV_MAKETYPE((ptr->byte_channel-1)*2,ptr->ch), buf);
-            ptr->is_new = false;
-            ptr->mutex.unlock();
-          }
-
-        }
-      }
-    }
-    auto item = mImageParams;
-    item.Params.RefreshImage = true;
   }
   void FillInspector() {
     std::string zoomKey = "zk";
@@ -139,12 +87,12 @@ class ViewPort : public IVInspector {
     const char* items[] = {"None", "10 fps", "20 fps", "30 fps"};
     ImGui::SameLine();
     ImGui::SetNextItemWidth(ImmApp::EmSize() * 5);
-    ImGui::Combo("PreviewFPS", &(mImageParams.targetFPS), items,
+    ImGui::Combo("PreviewFPS", &(targetFPS), items,
                  IM_ARRAYSIZE(items));
     ImGui::SameLine();
     ImGui::SetNextItemWidth(ImmApp::EmSize() * 5);
-    ImGui::Combo("RecordingFPS", &(mImageParams.recordFPS),
-                 items, IM_ARRAYSIZE(items));
+    ImGui::Combo("RecordingFPS", &(recordFPS), items,
+                 IM_ARRAYSIZE(items));
 
     return changed;
   }

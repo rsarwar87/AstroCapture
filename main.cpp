@@ -13,7 +13,6 @@
 #include "HyperlinkHelper.hpp"
 #include "ViewPort.hpp"
 #include "Plots.hpp"
-#include "AcqusitionHandler.hpp"
 #include <memory>
 // MyLoadFonts: demonstrate
 // * how to load additional fonts
@@ -111,9 +110,8 @@ int main(int, char **) {
   // Part 1: Define the application state, fill the status and menu bars, and
   // load additional font
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  std::shared_ptr<AcqManager> acqManager = std::make_shared<AcqManager>();
   PlotWidget plotWidget;
-  ViewPort viewPort(acqManager);
+  ViewPort viewPort;
   CameraWindow cameraWindow;
   AboutWindow aboutWindow;
   Acknowledgments acknowledgments;

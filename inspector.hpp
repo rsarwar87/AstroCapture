@@ -40,8 +40,6 @@ struct Inspector_ImageAndParams {
   double InitialZoomRatio = 1.;
   bool WasSentToTextureCache = false;
   SobelParams sParam;
-  int targetFPS = 0; 
-  int recordFPS = 1; 
 };
 
 class IVInspector {
