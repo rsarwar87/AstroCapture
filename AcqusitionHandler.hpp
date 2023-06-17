@@ -43,16 +43,16 @@ class AcqManager {
 
   void RecordStream() {
   }
+
   void UpdateView() {
-    abort_view = false;
     while (!abort_view) {
       if (CameraWindow::pCamera != nullptr) {
         if (CameraWindow::pCamera->is_connected) {
           auto ptr = CameraWindow::pCamera->getImageFramePtr();
           if (CameraWindow::pCamera->is_running) {
-            while (!CameraWindow::pCamera->is_still) {
+            if (!CameraWindow::pCamera->is_still) {
               auto ptrS = CameraWindow::pCamera->getStreamingFramePtr();
-              if (ptrS->is_active) {
+              while (ptrS->is_active) {
                 if (targetFPS == 0 ||
                     timer.Finish() > (1 / (targetFPS * 10)) * 1000) {
                   timer.Start();
@@ -62,15 +62,15 @@ class AcqManager {
                       updateImage(ptr, buf, "VideoFrame");
                     }
                   }
+                } else {
+                  std::this_thread::sleep_for(
+                      std::chrono::milliseconds(
+                          ((1 / (targetFPS * 10)) * 1000) - timer.Finish()) *
+                      0.75);
                 }
-              } else {
-                std::this_thread::sleep_for(
-                    std::chrono::milliseconds(((1 / (targetFPS * 10)) * 1000) -
-                                              timer.Finish()) *
-                    0.75);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                if (abort_view) break;
               }
-              std::this_thread::sleep_for(std::chrono::milliseconds(1));
-              if (abort_view) break;
             }
           } else if (ptr->is_new) {
             if (ptr->mutex.try_lock()) {
@@ -92,13 +92,11 @@ class AcqManager {
   std::thread recordingThread;
   std::thread viewingThread;
   void updateImage(auto ptr, auto buf, std::string str = "StillFrame") {
-    if (updatingFrame.try_lock())
-    {
-      spdlog::debug("Got new {}, {} KB {} CH, {}x{}", str,
-                            ptr->size / 1024, ptr->ch, ptr->dim[0],
-                            ptr->dim[1]);
+    if (updatingFrame.try_lock()) {
+      spdlog::debug("Got new {}, {} KB {} CH, {}x{}", str, ptr->size / 1024,
+                    ptr->ch, ptr->dim[0], ptr->dim[1]);
       mImage = cv::Mat(ptr->dim[0], ptr->dim[1],
-                     CV_MAKETYPE((ptr->byte_channel - 1) * 2, ptr->ch), buf);
+                       CV_MAKETYPE((ptr->byte_channel - 1) * 2, ptr->ch), buf);
       updatingFrame.unlock();
     }
   }
