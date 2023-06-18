@@ -2,9 +2,12 @@
 #define __AcquisitionManager__
 //#include <opencv2/opencv.hpp>
 
+#include <opencv2/opencv.hpp>
+#include <chrono>
 #include <mutex>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/videoio.hpp>
 #include <opencv2/imgproc.hpp>
 #include <thread>
 
@@ -33,7 +36,7 @@ class AcqManager {
   int recordFPS = 1;
 
   static void HelperRecordStream(AcqManager* acq) {
-    spdlog::info("UpdateView Thread started");
+    spdlog::info("RecordStream Thread started");
     acq->RecordStream();
   }
   static void HelperUpdateView(AcqManager* acq) {
@@ -42,6 +45,43 @@ class AcqManager {
   }
 
   void RecordStream() {
+    auto now = std::chrono::system_clock::now();
+    std::string fn;
+    cv::Mat img;
+    while (!abort_view) {
+      if (CameraWindow::pCamera != nullptr) {
+        if (CameraWindow::pCamera->is_connected) {
+          if (CameraWindow::pCamera->is_running) {
+            if (!CameraWindow::pCamera->is_still) {
+              auto ptrS = CameraWindow::pCamera->getStreamingFramePtr();
+              if (ptrS->do_record && ptrS->buffer != nullptr) {
+                now = std::chrono::system_clock::now();
+                //fn = fmt::format("{:%Y-%m-%d_%H:%M:%S}.avi\n", now);
+                spdlog::info("{Starting recording to {}}", fn);
+                cv::VideoWriter video("outcpp.avi",
+                                  cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                                  10, cv::Size(ptrS->dim[0], ptrS->dim[1]), ptrS->byte_channel > 1);
+                while (ptrS->is_active && ptrS->do_record) {
+                  auto buf = ptrS->buffer->dequeue();
+                  if (buf != nullptr) {
+                    img = cv::Mat(ptrS->dim[0], ptrS->dim[1],
+                       CV_MAKETYPE((ptrS->byte_channel - 1) * 2, ptrS->ch), buf);
+                    video.write(img);
+                    ptrS->buffer->move_tail();
+                  }
+
+                  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                  if (abort_view) break;
+                }
+                spdlog::info("{Stopped recording");
+                video.release();
+              }
+            }
+          }
+        }
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
   }
 
   void UpdateView() {
@@ -59,7 +99,7 @@ class AcqManager {
                   if (ptrS->buffer != nullptr) {
                     auto buf = ptrS->buffer->last();
                     if (buf != nullptr) {
-                      updateImage(ptr, buf, "VideoFrame");
+                      updateImage(ptrS, buf, "VideoFrame");
                     }
                   }
                 } else {
