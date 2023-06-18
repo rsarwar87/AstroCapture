@@ -131,7 +131,7 @@ class Circular_Buffer {
     // return item
     return item;
   }
-  void move_trail() {
+  void move_tail() {
     if (!is_done) {
       is_done = true;
       head = (head + 1) % max_size;
