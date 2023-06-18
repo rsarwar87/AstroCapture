@@ -28,7 +28,9 @@ include(imgui_bundle_add_app)
 # Uncomment the next line if you which to also automatically fetch and compile OpenCV for immvision support
 set(IMGUI_BUNDLE_WITH_SDL ON CACHE STRING "" FORCE)
 set(HELLOIMGUI_USE_SDL_OPENGL3 ON CACHE STRING "" FORCE)
-set(IMGUI_BUNDLE_FETCH_OPENCV OFF)
+set(IMGUI_BUNDLE_FETCH_OPENCV ON CACHE STRING "")
+set(IMMVISION_FETCH_OPENCV_FULL ON CACHE STRING "")
+set(IMMVISION_FETCH_OPENCV ON CACHE STRING "")
 
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_module/")
 include(GNUInstallDirs)
@@ -41,11 +43,22 @@ find_package(PkgConfig REQUIRED)
 add_subdirectory(external/libasi)
 add_subdirectory(external/libfmt)
 add_subdirectory(external/spdlog)
+pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
+    libavdevice
+    libavfilter
+    libavformat
+    libavcodec
+    libswresample
+    libswscale
+    libavutil
+)
 
 #ADD_LIBRARY(libudev SHARED IMPORTED)
 #SET_TARGET_PROPERTIES(libudev PROPERTIES IMPORTED_LOCATION /usr/./lib/x86_64-linux-gnu/libudev.so)
 #ADD_LIBRARY(libusb STATIC IMPORTED)
 #SET_TARGET_PROPERTIES(libusb PROPERTIES IMPORTED_LOCATION /usr/./lib/x86_64-linux-gnu/libusb-1.0.a)
+ADD_LIBRARY(libopencv_videoio STATIC IMPORTED)
+SET_TARGET_PROPERTIES(libopencv_videoio PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/build/_deps/opencv_fetch-install/lib/libopencv_videoio.a")
 
 ##########################################################
 # Build your app
@@ -56,7 +69,9 @@ FILE(GLOB sources_imgui_astrocapture
     ${CMAKE_CURRENT_LIST_DIR}/*.cpp
     )
 imgui_bundle_add_app(astrocapture ${sources_imgui_astrocapture})
-target_link_libraries(astrocapture PRIVATE ASICamera spdlog fmt udev usb-1.0)
+message(" cv_libs:     " ${OpenCV_LIBS})
+message(" cv_includes: " ${OPENCV_INCLUDE_DIRS})
+target_link_libraries(astrocapture PRIVATE ASICamera spdlog fmt udev usb-1.0 libopencv_videoio PkgConfig::LIBAV)
 
 # Now you can build your app with
 #     mkdir build && cd build && cmake .. && cmake --build .
