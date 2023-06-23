@@ -10,6 +10,7 @@
 #include <opencv2/videoio.hpp>
 #include <opencv2/imgproc.hpp>
 #include <thread>
+#include "spdlog/fmt/bundled/chrono.h"
 
 #include "hello_imgui/hello_imgui.h"
 #include "imgui_md_wrapper/imgui_md_wrapper.h"
@@ -48,6 +49,7 @@ class AcqManager {
     auto now = std::chrono::system_clock::now();
     std::string fn;
     cv::Mat img;
+    cv::Mat cimg;
     while (!abort_view) {
       if (CameraWindow::pCamera != nullptr) {
         if (CameraWindow::pCamera->is_connected) {
@@ -56,24 +58,56 @@ class AcqManager {
               auto ptrS = CameraWindow::pCamera->getStreamingFramePtr();
               if (ptrS->do_record && ptrS->buffer != nullptr) {
                 now = std::chrono::system_clock::now();
-                //fn = fmt::format("{:%Y-%m-%d_%H:%M:%S}.avi\n", now);
-                spdlog::info("{Starting recording to {}}", fn);
-                cv::VideoWriter video("outcpp.avi",
-                                  cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
-                                  10, cv::Size(ptrS->dim[0], ptrS->dim[1]), ptrS->byte_channel > 1);
-                while (ptrS->is_active && ptrS->do_record) {
+                fn = fmt::format("{}\{:%Y-%m-%d_%H-%M-%S}.avi", ptrS->selectedFilename, now);
+                spdlog::info("Starting recording to {}", fn);
+                ptrS->nCaptured = 0;
+                int ex = 40;
+                //if (ptrS->byte_channel == 1){
+                //  if (ptrS->ch == 1) ex = 40
+                //  else ex = 24;
+                //  if (ptrS->ch == 1) ex = cv::VideoWriter::fourcc('4', '0');
+                //  else ex = cv::VideoWriter::fourcc('2', '4');
+                //}
+                //else 
+                //{
+                //  if (ptrS->ch == 1) ex = cv::VideoWriter::fourcc('b', '1', '6', 'G');
+                //  else ex = cv::VideoWriter::fourcc('b', '4', '8', 'R');
+                //}
+                cv::VideoWriter video(fn,
+                                  cv::VideoWriter::fourcc('F', 'F', 'V', '1'), //0, //ex, //cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                                  1, cv::Size(ptrS->dim[0], ptrS->dim[1]), true); //ptrS->byte_channel > 1);
+                if (!video.isOpened())
+                  spdlog::critical("cv::VideoWriter failed to open {}", fn);
+                bool isColor = ptrS->byte_channel > 1;
+                while (ptrS->is_active) {
                   auto buf = ptrS->buffer->dequeue();
                   if (buf != nullptr) {
                     img = cv::Mat(ptrS->dim[0], ptrS->dim[1],
                        CV_MAKETYPE((ptrS->byte_channel - 1) * 2, ptrS->ch), buf);
-                    video.write(img);
+                    if (isColor)
+                      cimg = img;
+                      //cv::cvtColor(img, cimg, cv::COLOR_RGB2RGB);
+                    else
+                      cv::cvtColor(img, cimg, cv::COLOR_GRAY2RGB);
+                    if (ptrS->do_record && !cimg.empty())
+                    {
+                      video << cimg;
+                      ptrS->nCaptured++;
+                    }
                     ptrS->buffer->move_tail();
                   }
+                  else
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
                   std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                  if (abort_view) break;
+                  if (abort_view) 
+                  {
+                    spdlog::info("Stopped recording");
+                    video.release();
+                    break;
+                  }
                 }
-                spdlog::info("{Stopped recording");
+                spdlog::info("Stopped recording");
                 video.release();
               }
             }
