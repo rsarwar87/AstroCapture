@@ -114,7 +114,7 @@ class Circular_Buffer {
         spdlog::debug("buffer is empty");
         logged = true;
       }
-      return empty_item;
+      return nullptr;
     }
     logged = false;
     // get item at head
