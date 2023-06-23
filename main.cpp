@@ -11,9 +11,8 @@
 
 #include "CameraWindow.hpp"
 #include "HyperlinkHelper.hpp"
-#include "ViewPort.hpp"
 #include "Plots.hpp"
-#include <memory>
+#include "ViewPort.hpp"
 // MyLoadFonts: demonstrate
 // * how to load additional fonts
 // * how to use assets from the local assets/ folder
@@ -48,9 +47,10 @@ void StatusBarGui() {
       ImGui::SameLine();
       ImGui::Text("Exposure status:");
       ImGui::SameLine();
-      ImGui::ProgressBar(1 - float(CameraWindow::pCamera->m_expo_escape) /
-                                 float(CameraWindow::pCamera->mExposureCap->current_value),
-                         HelloImGui::EmToVec2(12.f, 1.f));
+      ImGui::ProgressBar(
+          1 - float(CameraWindow::pCamera->m_expo_escape) /
+                  float(CameraWindow::pCamera->mExposureCap->current_value),
+          HelloImGui::EmToVec2(12.f, 1.f));
       ImGui::SameLine();
       ImGui::Text("%d/%d", int(CameraWindow::pCamera->m_expo_escape),
                   int(CameraWindow::pCamera->mExposureCap->current_value));
@@ -59,13 +59,36 @@ void StatusBarGui() {
     } else {
       ImGui::Text("Video buffer fullness: ");
       ImGui::SameLine();
-      ImGui::ProgressBar(CameraWindow::pCamera->getStreamingFramePtr()->buffer->update_fullness(),
-                         HelloImGui::EmToVec2(12.f, 1.f));
+      ImGui::ProgressBar(CameraWindow::pCamera->getStreamingFramePtr()
+                             ->buffer->update_fullness(),
+                         HelloImGui::EmToVec2(8.f, 1.f));
+
+      static std::error_code ec;
+      if (CameraWindow::pCamera->getStreamingFramePtr()->selectedFilename !=
+          "") {
+        ImGui::SameLine();
+        size_t *aSpace =
+            &(CameraWindow::pCamera->getStreamingFramePtr()->aSpace);
+        size_t *fSpace =
+            &(CameraWindow::pCamera->getStreamingFramePtr()->fSpace);
+        *fSpace =
+            std::filesystem::space(
+                CameraWindow::pCamera->getStreamingFramePtr()->selectedFilename,
+                ec)
+                .available /
+            1024 / 1024;
+        ImGui::Text("Diskspace: %ld/%ld MB ", *aSpace, *fSpace);
+        ImGui::SameLine();
+        ImGui::ProgressBar((float)(*fSpace) / (float)(*aSpace),
+                           HelloImGui::EmToVec2(8.f, 1.f));
+      }
 
       ImGui::SameLine();
       ImGui::Text(
-          "Video capture fps: %0.2f; Time Elapsed: %d ms; Dropped: %d frames",
-          float(CameraWindow::pCamera->m_fps), int(CameraWindow::pCamera->m_vc_escape),
+          "Video capture fps: %0.2f; Time Elapsed: %d ms; Recorded: %d Dropped: %d frames",
+          float(CameraWindow::pCamera->m_fps),
+          int(CameraWindow::pCamera->m_vc_escape),
+          int(CameraWindow::pCamera->getStreamingFramePtr()->nCaptured),
           int(CameraWindow::pCamera->m_dropped_frames));
     }
   }
@@ -131,9 +154,7 @@ int main(int, char **) {
   runnerParams.imGuiWindowParams.showStatusBar = true;
   // uncomment next line in order to hide the FPS in the status bar
   // runnerParams.imGuiWindowParams.showStatus_Fps = false;
-  runnerParams.callbacks.ShowStatus = [] {
-    StatusBarGui();
-  };
+  runnerParams.callbacks.ShowStatus = [] { StatusBarGui(); };
 
   MenuBar(runnerParams);
 
@@ -258,8 +279,8 @@ int main(int, char **) {
   };
   // Finally, transmit these windows to HelloImGui
   runnerParams.dockingParams.dockableWindows = {
-      dock_about, commandsWindow, logsWindow, plotWindow, 
-      dock_acknowledgments, captureWindow};
+      dock_about, commandsWindow,       logsWindow,
+      plotWindow, dock_acknowledgments, captureWindow};
   aboutWindow.isVisible =
       &(runnerParams.dockingParams.dockableWindowOfName("About")->isVisible);
   acknowledgments.isVisible =
@@ -279,12 +300,11 @@ int main(int, char **) {
   addons.withMarkdown = true;
   addons.withImplot = true;
   addons.withTexInspect = true;
-          // Also clear ImmVision cache at exit (and before OpenGl is uninitialized)
+  // Also clear ImmVision cache at exit (and before OpenGl is uninitialized)
   auto oldBeforeExitCopy = runnerParams.callbacks.BeforeExit;
   auto newBeforeExit = [&runnerParams, oldBeforeExitCopy]() {
-      if (oldBeforeExitCopy)
-          oldBeforeExitCopy();
-      ImmVision::ClearTextureCache();
+    if (oldBeforeExitCopy) oldBeforeExitCopy();
+    ImmVision::ClearTextureCache();
   };
   runnerParams.callbacks.BeforeExit = newBeforeExit;
   ImmApp::Run(runnerParams, addons);

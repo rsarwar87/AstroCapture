@@ -75,9 +75,13 @@ typedef struct _STILL_STREAMING_STRUCT {
   std::string format;
   std::array<size_t, 3> dim;
 
-  std::atomic_bool do_record = false;
+  bool do_record = false;
   std::atomic_bool is_recording = false;
   std::atomic_bool is_active = false;
+  std::string selectedFilename = "/home/rsarwar/workspace/wkspace1/asi_planet/AstroCapture/build2/";
+  std::atomic_uint32_t nCaptured;
+  size_t fSpace = 0;
+  size_t aSpace = 0;
 } STILL_STREAMING_STRUCT;
 
 typedef struct _ASI_CONTROL_CAPS_CAST {
@@ -126,6 +130,12 @@ class ASIBase {
 
   bool Disconnect() {
     if (!is_connected) return true;
+    spdlog::info("Attempting to Close {}...", mCameraName);
+    if (is_running)
+    {
+      AbortExposure();
+      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
     spdlog::info("Attempting to Close {}...", mCameraName);
     StopVideoCapture();
     StopExposure();
@@ -374,6 +384,9 @@ class ASIBase {
         StopVideoCapture();
         is_running = false;
         do_abort = false;
+        streamingFrames.do_record = false;
+        streamingFrames.is_active = false;
+        spdlog::info("Exiting {}.", __func__);
         return true;
       }
 
@@ -403,6 +416,7 @@ class ASIBase {
                            ASIHelpers::toString(ret));
           StopVideoCapture();
           is_running = false;
+          streamingFrames.do_record = false;
           streamingFrames.is_active = false;
           return false;
         }

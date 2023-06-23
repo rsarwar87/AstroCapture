@@ -1,9 +1,11 @@
 #ifndef __camera_window__
 #define __camera_window__
+#include <signal.h>
 #include <spdlog/spdlog.h>
 #include <unistd.h>
 
 #include <charconv>
+#include <cstdlib>
 #include <iterator>
 #include <map>
 #include <memory>
@@ -14,8 +16,6 @@
 #include "ImFileDialog/ImFileDialog.h"
 #include "asi_ccd.hpp"
 #include "hello_imgui/hello_imgui.h"
-#include <cstdlib>
-#include <signal.h>
 class CameraWindow {
  public:
   CameraWindow() : camcurrent(0) {
@@ -41,30 +41,34 @@ class CameraWindow {
     memset(&sa, 0, sizeof(struct sigaction));
     sigemptyset(&sa.sa_mask);
     sa.sa_sigaction = segfault_sigaction;
-    sa.sa_flags   = SA_SIGINFO;
+    sa.sa_flags = SA_SIGINFO;
 
     sigaction(SIGSEGV, &sa, NULL);
   }
   void gui() { guiHelp(); }
 
-  static void segfault_sigaction(int signal, siginfo_t *si, void *arg)
-  {
-      spdlog::critical("{}: Detected segmentation fault@{}; executing graceful exit just to be safe ", __func__, si->si_addr);
-      if (CameraWindow::pCamera == nullptr) exit(-1);
-      if (!(CameraWindow::pCamera->is_connected)) exit(-1);
-      CameraWindow::pCamera->Disconnect();
-      exit(-1);
+  static void segfault_sigaction(int signal, siginfo_t *si, void *arg) {
+    spdlog::critical(
+        "{}: Detected segmentation fault@{}; executing graceful exit just to "
+        "be safe ",
+        __func__, si->si_addr);
+    if (CameraWindow::pCamera == nullptr) exit(-1);
+    if (!(CameraWindow::pCamera->is_connected)) exit(-1);
+    CameraWindow::pCamera->Disconnect();
+    exit(-1);
   }
 
-  static void captured_ctrl_c(int signum)
-  {
-    if (signum != 2) spdlog::critical("captured signal {}; executing graceful exit just to be safe ", signum);
-    else spdlog::warn("{} {}: making sure camera is closed", __func__, signum);
+  static void captured_ctrl_c(int signum) {
+    if (signum != 2)
+      spdlog::critical(
+          "captured signal {}; executing graceful exit just to be safe ",
+          signum);
+    else
+      spdlog::warn("{} {}: making sure camera is closed", __func__, signum);
     if (CameraWindow::pCamera == nullptr) exit(signum);
     if (!(CameraWindow::pCamera->is_connected)) exit(signum);
     CameraWindow::pCamera->Disconnect();
     exit(signum);
-      
   }
   std::vector<std::string> names;
   std::vector<int> keys;
@@ -74,7 +78,6 @@ class CameraWindow {
   std::vector<const char *> items_bin;
   int mSysMem;
   size_t mTSysMem;
-  std::string selectedFilename;
 
   std::thread thCapture;
 
@@ -119,9 +122,10 @@ class CameraWindow {
 
             items_fmt.clear();
             items_fmt.reserve(pCamera->m_supportedFormat_str.size());
-            for (size_t index = 0; index < pCamera->m_supportedFormat_str.size();
-                 ++index) {
-              items_fmt.push_back(pCamera->m_supportedFormat_str[index].c_str());
+            for (size_t index = 0;
+                 index < pCamera->m_supportedFormat_str.size(); ++index) {
+              items_fmt.push_back(
+                  pCamera->m_supportedFormat_str[index].c_str());
             }
             items_bin.clear();
             items_bin.reserve(pCamera->m_supportedBin.size());
@@ -254,7 +258,8 @@ class CameraWindow {
         pCamera->m_frame[1].MinValue,
         pCamera->m_frame[1].MaxValue - pCamera->m_frame[1].AxisOffset);
     ImGui::SliderInt(
-        "Height (Y)", reinterpret_cast<int *>(&pCamera->m_frame[0].CurrentValue),
+        "Height (Y)",
+        reinterpret_cast<int *>(&pCamera->m_frame[0].CurrentValue),
         pCamera->m_frame[0].MinValue,
         pCamera->m_frame[0].MaxValue - pCamera->m_frame[0].AxisOffset);
     ImGui::SliderInt(
@@ -286,9 +291,12 @@ class CameraWindow {
     if (pCamera->is_running) ImGui::EndDisabled();
   }
   void guiAcquisition() {
+    namespace fs = std::filesystem;
     if (pCamera->is_running) ImGui::BeginDisabled();
     ImGui::SliderInt("Buffer Size", &mSysMem, 256, mTSysMem * 0.6);
-    ImGui::InputText("Directory", &selectedFilename[0], 512);
+    ImGui::InputText("Directory",
+                     &(pCamera->getStreamingFramePtr()->selectedFilename[0]),
+                     512);
     ImGui::SameLine();
     if (ImGui::Button(ICON_FA_SAVE "...")) {
       ifd::FileDialog::Instance().Open("DirectoryOpenDialog",
@@ -296,11 +304,35 @@ class CameraWindow {
     }
     if (pCamera->is_running) ImGui::EndDisabled();
     if (ifd::FileDialog::Instance().IsDone("DirectoryOpenDialog")) {
+      std::string path_rec = "";
       if (ifd::FileDialog::Instance().HasResult())
-        selectedFilename = ifd::FileDialog::Instance().GetResult().string();
-      HelloImGui::Log(HelloImGui::LogLevel::Info, "Directory: %s",
-                      selectedFilename.c_str());
+        path_rec = ifd::FileDialog::Instance().GetResult().string();
+      HelloImGui::Log(
+          HelloImGui::LogLevel::Info, "Directory: %s",
+          pCamera->getStreamingFramePtr()->selectedFilename.c_str());
       ifd::FileDialog::Instance().Close();
+      fs::perms p = fs::status(path_rec).permissions();
+      static std::error_code ec;
+      if (!fs::exists(path_rec)) {
+        spdlog::error("{} does not exists", path_rec);
+      } else if (!fs::is_directory(path_rec)) {
+        spdlog::error("{} is not a directory", path_rec);
+      //} else if ((fs::perms::none == (p & fs::perms::owner_write)) ||
+      //           (fs::perms::none == (p & fs::perms::owner_write))) {
+      //  spdlog::error("{} is not have read/write permission", path_rec);
+      } else if (std::filesystem::space(path_rec, ec).available / 1024 / 1024 /
+                     1024 <
+                 1) {
+        spdlog::error("{} needs atleast 1GB of free space. Currently has {} MB",
+                      path_rec,
+                      std::filesystem::space(path_rec, ec).available / 1024 / 1024);
+      } else {
+        pCamera->getStreamingFramePtr()->selectedFilename = path_rec;
+        pCamera->getStreamingFramePtr()->aSpace =
+            std::filesystem::space(path_rec, ec).capacity / 1024 / 1024;
+        pCamera->getStreamingFramePtr()->fSpace =
+            std::filesystem::space(path_rec, ec).available / 1024 / 1024;
+      }
     }
     if (!pCamera->is_running) {
       if (ImGui::Button(ICON_FA_TV " Capture Frame")) {
@@ -313,6 +345,11 @@ class CameraWindow {
     } else {
       if (ImGui::Button(ICON_FA_STOP " Abort")) {
         pCamera->AbortExposure();
+      }
+      if (pCamera->getStreamingFramePtr()->fSpace > 1) {
+        ImGui::SameLine();
+        ImGui::Checkbox(ICON_FA_STOP " Record",
+                        &(pCamera->getStreamingFramePtr()->do_record));
       }
     }
   }
