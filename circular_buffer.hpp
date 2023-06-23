@@ -111,7 +111,7 @@ class Circular_Buffer {
     // if buffer is empty, throw an error
     if (is_empty()) {
       if (!logged) {
-        spdlog::critical("buffer is empty");
+        spdlog::debug("buffer is empty");
         logged = true;
       }
       return empty_item;
