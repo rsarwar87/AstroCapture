@@ -7,10 +7,11 @@
 #include <mutex>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
-#include <opencv2/videoio.hpp>
+//#include <opencv2/videoio.hpp>
 #include <opencv2/imgproc.hpp>
 #include <thread>
 #include "spdlog/fmt/bundled/chrono.h"
+#include "SERProcessor.hpp"
 
 #include "hello_imgui/hello_imgui.h"
 #include "imgui_md_wrapper/imgui_md_wrapper.h"
@@ -48,8 +49,6 @@ class AcqManager {
   void RecordStream() {
     auto now = std::chrono::system_clock::now();
     std::string fn;
-    cv::Mat img;
-    cv::Mat cimg;
     while (!abort_view) {
       if (CameraWindow::pCamera != nullptr) {
         if (CameraWindow::pCamera->is_connected) {
@@ -58,40 +57,25 @@ class AcqManager {
               auto ptrS = CameraWindow::pCamera->getStreamingFramePtr();
               if (ptrS->do_record && ptrS->buffer != nullptr) {
                 now = std::chrono::system_clock::now();
-                fn = fmt::format("{}\{:%Y-%m-%d_%H-%M-%S}.avi", ptrS->selectedFilename, now);
+                fn = fmt::format("{}\{:%Y-%m-%d_%H-%M-%S}.ser", ptrS->selectedFilename, now);
                 spdlog::info("Starting recording to {}", fn);
                 ptrS->nCaptured = 0;
-                int ex = 40;
-                //if (ptrS->byte_channel == 1){
-                //  if (ptrS->ch == 1) ex = 40
-                //  else ex = 24;
-                //  if (ptrS->ch == 1) ex = cv::VideoWriter::fourcc('4', '0');
-                //  else ex = cv::VideoWriter::fourcc('2', '4');
-                //}
-                //else 
-                //{
-                //  if (ptrS->ch == 1) ex = cv::VideoWriter::fourcc('b', '1', '6', 'G');
-                //  else ex = cv::VideoWriter::fourcc('b', '4', '8', 'R');
-                //}
-                cv::VideoWriter video(fn,
-                                  cv::VideoWriter::fourcc('F', 'F', 'V', '1'), //0, //ex, //cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
-                                  1, cv::Size(ptrS->dim[0], ptrS->dim[1]), true); //ptrS->byte_channel > 1);
-                if (!video.isOpened())
-                  spdlog::critical("cv::VideoWriter failed to open {}", fn);
+                std::unique_ptr<SER::SERWriter> writer = std::make_unique<SER::SERWriter>(fn);
+                std::array<uint32_t, 2> dims{ptrS->dim[0], ptrS->dim[1]};
+                std::array<std::string, 3> strs {"ds", "dds", "asdwad"};
+                writer->prepare_header(dims, strs, ptrS->byte_channel, ptrS->format);
+                if (!writer->isOpen())
+                {
+                  spdlog::critical("VideoWriter failed to open {}", fn);
+                  continue;
+                }
                 bool isColor = ptrS->byte_channel > 1;
-                while (ptrS->is_active) {
+                while (ptrS->is_active && writer->isOpen()) {
                   auto buf = ptrS->buffer->dequeue();
                   if (buf != nullptr) {
-                    img = cv::Mat(ptrS->dim[0], ptrS->dim[1],
-                       CV_MAKETYPE((ptrS->byte_channel - 1) * 2, ptrS->ch), buf);
-                    if (isColor)
-                      cimg = img;
-                      //cv::cvtColor(img, cimg, cv::COLOR_RGB2RGB);
-                    else
-                      cv::cvtColor(img, cimg, cv::COLOR_GRAY2RGB);
-                    if (ptrS->do_record && !cimg.empty())
+                    if (ptrS->do_record)
                     {
-                      video << cimg;
+                      writer->write_frame(buf);
                       ptrS->nCaptured++;
                     }
                     ptrS->buffer->move_tail();
@@ -103,12 +87,12 @@ class AcqManager {
                   if (abort_view) 
                   {
                     spdlog::info("Stopped recording");
-                    video.release();
+                    writer.reset();
                     break;
                   }
                 }
                 spdlog::info("Stopped recording");
-                video.release();
+                writer.reset();
               }
             }
           }

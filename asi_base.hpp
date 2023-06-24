@@ -25,6 +25,7 @@
 
 #include <libasi/ASICamera2.h>
 #include <spdlog/spdlog.h>
+#include "SERProcessor.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -59,7 +60,7 @@ typedef struct _STILL_IMAGE_STRUCT {
   size_t size = 0;
   size_t ch = 1;
   size_t byte_channel = 1;
-  std::string format;
+  SER::BAYER format;
   std::array<size_t, 3> dim;
 
   std::mutex mutex;
@@ -72,7 +73,7 @@ typedef struct _STILL_STREAMING_STRUCT {
   size_t size = 0;
   size_t ch = 1;
   size_t byte_channel = 1;
-  std::string format;
+  SER::BAYER format;
   std::array<size_t, 3> dim;
 
   bool do_record = false;
@@ -372,7 +373,20 @@ class ASIBase {
     streamingFrames.size = nTotalBytes;
     streamingFrames.ch = std::get<1>(imgFormat)[2];
     streamingFrames.byte_channel = std::get<2>(imgFormat);
-    streamingFrames.format = "";
+    streamingFrames.format = SER::BAYER::COLOR_RGB;
+    streamingFrames.currentFormat = mCurrentStillFormat;
+
+    if (streamingFrames.ch == 1)
+    {
+      if (streamingFrames.ch) streamingFrames.format = SER::BAYER::COLOR_MONO;
+      else {
+        if (std::get<0>(imgFormat) == ASIHelpers::RGGB) streamingFrames.format = SER::BAYER::COLOR_BAYER_RGGB; 
+        else if (std::get<0>(imgFormat) == ASIHelpers::BGGR) streamingFrames.format = SER::BAYER::COLOR_BAYER_BGGR;
+        else if (std::get<0>(imgFormat) == ASIHelpers::GRBG) streamingFrames.format = SER::BAYER::COLOR_BAYER_GRBG;
+        else if (std::get<0>(imgFormat) == ASIHelpers::GBRG) streamingFrames.format = SER::BAYER::COLOR_BAYER_GBRG;
+      }
+    }
+
     streamingFrames.dim = {std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
                            std::get<1>(imgFormat)[2]};
 
@@ -425,7 +439,7 @@ class ASIBase {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         continue;
       }
-      if (stillFrame.currentFormat == ASI_IMG_RGB24)
+      if (streamingFrames.currentFormat == ASI_IMG_RGB24)
         sort_rgb24(targetFrame, imgFormat);
 
       count++;
@@ -551,7 +565,17 @@ class ASIBase {
     stillFrame.size = nTotalBytes;
     stillFrame.ch = std::get<1>(imgFormat)[2];
     stillFrame.byte_channel = std::get<2>(imgFormat);
-    stillFrame.format = "";
+    stillFrame.format = SER::BAYER::COLOR_RGB;
+    if (stillFrame.ch == 1)
+    {
+      if (stillFrame.ch) stillFrame.format = SER::BAYER::COLOR_MONO;
+      else {
+        if (std::get<0>(imgFormat) == ASIHelpers::RGGB) stillFrame.format = SER::BAYER::COLOR_BAYER_RGGB; 
+        else if (std::get<0>(imgFormat) == ASIHelpers::BGGR) stillFrame.format = SER::BAYER::COLOR_BAYER_BGGR;
+        else if (std::get<0>(imgFormat) == ASIHelpers::GRBG) stillFrame.format = SER::BAYER::COLOR_BAYER_GRBG;
+        else if (std::get<0>(imgFormat) == ASIHelpers::GBRG) stillFrame.format = SER::BAYER::COLOR_BAYER_GBRG;
+      }
+    }
     stillFrame.dim = {std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
                       std::get<1>(imgFormat)[2]};
     stillFrame.mutex.unlock();
