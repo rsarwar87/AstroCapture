@@ -417,15 +417,26 @@ class SERWriter : public SERBase {
     std::ios_base::sync_with_stdio(false);
     fn = _fn;
     fd = std::fstream(fn.c_str(), std::ios::out | std::ios::binary);
+    if (!fd.is_open()) {
+      spdlog::critical("failed to open file: {}", fn);
+    }
     is_prepared = false;
   };
   ~SERWriter() {
     spdlog::info("closing writter for: {}", fn);
-    close();
+    if (isOpen()) close();
   };
+  bool isOpen()
+  {
+    return fd.is_open();
+  }
   void prepare_header(std::array<uint32_t, 2> dim,
                       std::array<std::string, 3> str, uint8_t nbytes,
                       BAYER bay = COLOR_MONO) {
+    if (!isOpen()) {
+      spdlog::critical("failed to open file: {}", fn);
+      return;
+    }
     std::memcpy(header->sFileID, "LUCAM-RECORDER", sizeof(header->sFileID));
     header->uiLuID = 0;
     header->uiColorID = bay;
@@ -450,9 +461,12 @@ class SERWriter : public SERBase {
     sz = SERGetFrameSize();
     spdlog::info("Created file: {}, each frame is {} bytes", fn, sz);
 
-    print_header();
   }
   void write_frame(uint8_t *data) {
+    if (!isOpen()) {
+      spdlog::critical("failed to open file: {}", fn);
+      return;
+    }
     fd.seekg(0, std::ios::end);
     header->uiFrameCount++;
     write<uint8_t>(data, sz);
@@ -462,6 +476,7 @@ class SERWriter : public SERBase {
   }
   void close() {
     if (header->uiFrameCount > 0) {
+      print_header();
       write_header();
       write_tail();
     }
