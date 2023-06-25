@@ -145,7 +145,7 @@ class Circular_Buffer {
   }
 
   // Return true if this circular buffer is empty, and false otherwise.
-  bool is_empty() { return occupancy() == 0; }
+  bool is_empty() { return occupancy() == 1; }
 
   // Return true if this circular buffer is full, and false otherwise.
   bool is_full() { return occupancy() == max_size - 1; }
