@@ -5,6 +5,8 @@
 #include "immapp/immapp.h"
 #include "immapp/snippets.h"
 //#include "hello_imgui/hello_imgui.h"
+#include <spdlog/spdlog.h>
+
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -85,7 +87,8 @@ void StatusBarGui() {
 
       ImGui::SameLine();
       ImGui::Text(
-          "Video capture fps: %0.2f; Time Elapsed: %d ms; Recorded: %d Dropped: %d frames",
+          "Video capture fps: %0.2f; Time Elapsed: %d ms; Recorded: %d "
+          "Dropped: %d frames",
           float(CameraWindow::pCamera->m_fps),
           int(CameraWindow::pCamera->m_vc_escape),
           int(CameraWindow::pCamera->getStreamingFramePtr()->nCaptured),
@@ -93,9 +96,15 @@ void StatusBarGui() {
     }
   }
 }
+void ShowAppMenuItems() {
+  static bool isDebug = false;
+  if (ImGui::MenuItem("Debug Messages", NULL, &isDebug))
+    spdlog::set_level(isDebug ? spdlog::level::debug : spdlog::level::info);
+}
 
 void MenuBar(HelloImGui::RunnerParams &runnerParams) {
   runnerParams.imGuiWindowParams.showMenuBar = true;
+  runnerParams.callbacks.ShowAppMenuItems = ShowAppMenuItems;
   runnerParams.callbacks.ShowMenus = [&runnerParams] {
     HelloImGui::DockableWindow *aboutWindow =
         runnerParams.dockingParams.dockableWindowOfName("About");
@@ -128,6 +137,31 @@ void MenuBar(HelloImGui::RunnerParams &runnerParams) {
   };
 }
 
+static ViewPort *vp = nullptr;
+static void segfault_sigaction(int signal, siginfo_t *si, void *arg) {
+  spdlog::critical(
+      "{}: Detected segmentation fault@{}; executing graceful exit just to "
+      "be safe ",
+      __func__, si->si_addr);
+  if (vp != nullptr) vp->close_threads();
+  if (CameraWindow::pCamera != nullptr)
+    if ((CameraWindow::pCamera->is_connected))
+      CameraWindow::pCamera->Disconnect();
+  exit(-1);
+}
+
+static void captured_ctrl_c(int signum) {
+  if (signum != 2)
+    spdlog::critical(
+        "captured signal {}; executing graceful exit just to be safe ", signum);
+  else
+    spdlog::warn("{} {}: making sure camera is closed", __func__, signum);
+  if (vp != nullptr) vp->close_threads();
+  if (CameraWindow::pCamera != nullptr)
+    if ((CameraWindow::pCamera->is_connected))
+      CameraWindow::pCamera->Disconnect();
+  exit(signum);
+}
 int main(int, char **) {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Part 1: Define the application state, fill the status and menu bars, and
@@ -138,7 +172,16 @@ int main(int, char **) {
   CameraWindow cameraWindow;
   AboutWindow aboutWindow;
   Acknowledgments acknowledgments;
+  vp = &viewPort;
   // Our application state
+
+  struct sigaction sa;
+  signal(SIGINT, captured_ctrl_c);
+  memset(&sa, 0, sizeof(struct sigaction));
+  sigemptyset(&sa.sa_mask);
+  sa.sa_sigaction = segfault_sigaction;
+  sa.sa_flags = SA_SIGINFO;
+  sigaction(SIGSEGV, &sa, NULL);
 
   // Hello ImGui params (they hold the settings as well as the Gui callbacks)
   HelloImGui::RunnerParams runnerParams;

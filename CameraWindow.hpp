@@ -35,41 +35,8 @@ class CameraWindow {
     HelloImGui::Log(HelloImGui::LogLevel::Info, "Total System Memory: %d",
                     mTSysMem);
     mSysMem = 512;
-
-    struct sigaction sa;
-    signal(SIGINT, captured_ctrl_c);
-    memset(&sa, 0, sizeof(struct sigaction));
-    sigemptyset(&sa.sa_mask);
-    sa.sa_sigaction = segfault_sigaction;
-    sa.sa_flags = SA_SIGINFO;
-
-    sigaction(SIGSEGV, &sa, NULL);
   }
   void gui() { guiHelp(); }
-
-  static void segfault_sigaction(int signal, siginfo_t *si, void *arg) {
-    spdlog::critical(
-        "{}: Detected segmentation fault@{}; executing graceful exit just to "
-        "be safe ",
-        __func__, si->si_addr);
-    if (CameraWindow::pCamera == nullptr) exit(-1);
-    if (!(CameraWindow::pCamera->is_connected)) exit(-1);
-    CameraWindow::pCamera->Disconnect();
-    exit(-1);
-  }
-
-  static void captured_ctrl_c(int signum) {
-    if (signum != 2)
-      spdlog::critical(
-          "captured signal {}; executing graceful exit just to be safe ",
-          signum);
-    else
-      spdlog::warn("{} {}: making sure camera is closed", __func__, signum);
-    if (CameraWindow::pCamera == nullptr) exit(signum);
-    if (!(CameraWindow::pCamera->is_connected)) exit(signum);
-    CameraWindow::pCamera->Disconnect();
-    exit(signum);
-  }
   std::vector<std::string> names;
   std::vector<int> keys;
   static std::shared_ptr<ASICCD> pCamera;
