@@ -18,7 +18,7 @@ For full speed download, a PCIe 2.0 NVMe is needed, these include Rock 3A and Ro
 I only have a ASI178, a 6MP camera. Only done testing of some features. Was able to offload 25 frames per sec using an NVMe. This camera is rated for 30 fps, generating 6 MB per frame or 180 MBps. Will update this section with full results.
 
 #### Known Issue
-* Does not work well with 16-bit captures.
+* Does not work well with 16-bit captures - data in SER files looks odd.
 ## Building
 ```
 sudo apt-get install libgles2-mesa libgles2-mesa-dev xorg-dev libusb-1.0-0-dev pkg-config libudev-dev libxi-dev libxrandr-dev 
