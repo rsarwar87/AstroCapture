@@ -1,4 +1,4 @@
-### Planetary captuer software
+# Planetary captuer software
 
 
 This app was primarily made to allow fast video capture on linux aarch64 platforms. But FireCapture, a popular linux video capture JAVA-based software was difficult to run due to limited resurces on SBCs.
@@ -8,12 +8,17 @@ Recomended hardware:
 * at least four CPU cores (hex-core recommended)
 * at least 4 GB RAM DDR4 (dual-channel recommended)
 * OpenGL/OpenGLES3 support (hardware acceleration recommended)
-* 500 GB SSD (NVMe recommended)
+* 500 GB SSD over USB3 (NVMe recommended)
 
 For full speed download, a PCIe 2.0 NVMe is needed, these include Rock 3A and Rock 4SE and Rock 5B. It however runs okay on RPi4.
 
 [I'd love to read your feedback!](https://github.com/rsarwar87/AstroCapture/issues)
 
+## Testing
+I only have a ASI178, a 6MP camera. Only done testing of some features. Was able to offload 25 frames per sec using an NVMe. Will update this section with full results.
+
+#### Known Issue
+* Does not work well with 16-bit captures.
 ## Building
 ```
 sudo apt-get install libgles2-mesa libgles2-mesa-dev xorg-dev libusb-1.0-0-dev pkg-config libudev-dev libxi-dev libxrandr-dev 
@@ -24,6 +29,8 @@ cmake ../ -DIMMVISION_FETCH_OPENCV=ON -DIMGUI_BUNDLE_WITH_SDL=ON
 ```
 
 If i am missing any prerequisite libraries, please let me know and i'll add it in.
+
+
 ## Acknowledgement
 
 This manual uses some great libraries, which are shown below.
