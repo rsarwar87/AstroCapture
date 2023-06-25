@@ -8,6 +8,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 //#include <opencv2/videoio.hpp>
+#include <iostream>
 #include <opencv2/imgproc.hpp>
 #include <thread>
 #include "spdlog/fmt/bundled/chrono.h"
@@ -161,6 +162,11 @@ class AcqManager {
                     CV_MAKETYPE((ptr->byte_channel - 1) * 2, ptr->ch));
       mImage = cv::Mat(ptr->dim[0], ptr->dim[1],
                        CV_MAKETYPE((ptr->byte_channel - 1) * 2, ptr->ch), buf);
+      if (ptr->byte_channel == 2 ) 
+      {
+        mImage = mImage / 255;
+        mImage.convertTo(mImage, CV_MAKETYPE(0, ptr->ch));
+      }
       updatingFrame.unlock();
     }
   }
