@@ -112,13 +112,14 @@ public:
         unsigned long long totalUser, totalUserLow, totalSys, totalIdle, total;
 
         file = fopen("/proc/stat", "r");
-        fscanf(file, "cpu %llu %llu %llu %llu", &totalUser, &totalUserLow,
+        auto ret = fscanf(file, "cpu %llu %llu %llu %llu", &totalUser, &totalUserLow,
             &totalSys, &totalIdle);
         fclose(file);
 
         if (totalUser < m_lastTotalUser || totalUserLow < m_lastTotalUserLow ||
             totalSys < m_lastTotalSys || totalIdle < m_lastTotalIdle) {
             //Overflow detection. Just skip this value.
+            percent = ret;
             percent = -1.0;
         }
         else {

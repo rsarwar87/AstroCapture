@@ -139,10 +139,13 @@ void MenuBar(HelloImGui::RunnerParams &runnerParams) {
 
 static ViewPort *vp = nullptr;
 static void segfault_sigaction(int signal, siginfo_t *si, void *arg) {
+  if (arg == NULL)
+    arg = NULL;
+
   spdlog::critical(
       "{}: Detected segmentation fault@{}; executing graceful exit just to "
-      "be safe ",
-      __func__, si->si_addr);
+      "be safe, signal- {}",
+      __func__, si->si_addr, signal);
   if (vp != nullptr) vp->close_threads();
   if (CameraWindow::pCamera != nullptr)
     if ((CameraWindow::pCamera->is_connected))
@@ -155,7 +158,7 @@ static void captured_ctrl_c(int signum) {
     spdlog::critical(
         "captured signal {}; executing graceful exit just to be safe ", signum);
   else
-    spdlog::warn("{} {}: making sure camera is closed", __func__, signum);
+    spdlog::critical("{} {}: making sure camera is closed", __func__, signum);
   if (vp != nullptr) vp->close_threads();
   if (CameraWindow::pCamera != nullptr)
     if ((CameraWindow::pCamera->is_connected))

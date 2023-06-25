@@ -11,6 +11,7 @@
 #include <opencv2/imgproc.hpp>
 #include <thread>
 #include "spdlog/fmt/bundled/chrono.h"
+#include "asi_base.hpp"
 #include "SERProcessor.hpp"
 
 #include "hello_imgui/hello_imgui.h"
@@ -64,7 +65,7 @@ class AcqManager {
                 spdlog::info("Starting recording to {}", fn);
                 ptrS->nCaptured = 0;
                 std::unique_ptr<SER::SERWriter> writer = std::make_unique<SER::SERWriter>(fn);
-                std::array<uint32_t, 2> dims{ptrS->dim[0], ptrS->dim[1]};
+                std::array<size_t, 2> dims{ptrS->dim[0], ptrS->dim[1]};
                 std::array<std::string, 3> strs {"ds", "dds", "asdwad"};
                 writer->prepare_header(dims, strs, ptrS->byte_channel, ptrS->format);
                 if (!writer->isOpen())
@@ -72,7 +73,6 @@ class AcqManager {
                   spdlog::critical("VideoWriter failed to open {}", fn);
                   continue;
                 }
-                bool isColor = ptrS->byte_channel > 1;
                 while (ptrS->is_active && writer->isOpen()) {
                   auto buf = ptrS->buffer->dequeue();
                   if (buf != nullptr) {
@@ -115,12 +115,12 @@ class AcqManager {
               auto ptrS = CameraWindow::pCamera->getStreamingFramePtr();
               while (ptrS->is_active) {
                 if (targetFPS == 0 ||
-                    timer.Finish() > (1 / (targetFPS * 10)) * 1000) {
+                    timer.Finish() > (1 /((uint32_t)(targetFPS) * 10)) * 1000) {
                   timer.Start();
                   if (ptrS->buffer != nullptr) {
                     auto buf = ptrS->buffer->last();
                     if (buf != nullptr) {
-                      updateImage(ptrS, buf, "VideoFrame");
+                      updateImage<STILL_STREAMING_STRUCT>(ptrS, buf, "VideoFrame");
                     }
                   }
                 } else {
@@ -153,7 +153,8 @@ class AcqManager {
 
   std::thread recordingThread;
   std::thread viewingThread;
-  void updateImage(auto ptr, auto buf, std::string str = "StillFrame") {
+  template <class T = STILL_IMAGE_STRUCT>
+  void updateImage(T *ptr, uint8_t *buf, std::string str = "StillFrame") {
     if (updatingFrame.try_lock()) {
       spdlog::debug("Got new {}, {} KB {} CH, {}x{} {} {}", str, ptr->size / 1024,
                     ptr->ch, ptr->dim[0], ptr->dim[1], (ptr->byte_channel - 1) * 2, 

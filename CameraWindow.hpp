@@ -278,7 +278,7 @@ class CameraWindow {
           HelloImGui::LogLevel::Info, "Directory: %s",
           pCamera->getStreamingFramePtr()->selectedFilename.c_str());
       ifd::FileDialog::Instance().Close();
-      fs::perms p = fs::status(path_rec).permissions();
+      //fs::perms p = fs::status(path_rec).permissions();
       static std::error_code ec;
       if (!fs::exists(path_rec)) {
         spdlog::error("{} does not exists", path_rec);

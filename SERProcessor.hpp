@@ -430,7 +430,7 @@ class SERWriter : public SERBase {
   {
     return fd.is_open();
   }
-  void prepare_header(std::array<uint32_t, 2> dim,
+  void prepare_header(std::array<size_t, 2> dim,
                       std::array<std::string, 3> str, uint8_t nbytes,
                       BAYER bay = COLOR_MONO) {
     if (!isOpen()) {

@@ -77,7 +77,7 @@ class IVInspector {
         legend ;
     SobelParams sparam;
     mImageParams = 
-        {0, label, image.clone(), params, zoomCenter, zoomRatio};
+        {0, label, image.clone(), params, zoomCenter, zoomRatio, false, sparam};
 
   }
 
