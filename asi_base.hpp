@@ -1,115 +1,14 @@
-/*
-    ASI CCD Driver
-
-    Copyright (C) 2015-2021 Jasem Mutlaq (mutlaqja@ikarustech.com)
-    Copyright (C) 2018 Leonard Bottleman (leonard@whiteweasel.net)
-    Copyright (C) 2021 Pawel Soja (kernel32.pl@gmail.com)
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
-   USA
-*/
 
 #pragma once
 
 #include <libasi/ASICamera2.h>
-#include <spdlog/spdlog.h>
+#include "camera_base.hpp"
 
-#include <atomic>
-#include <chrono>
-#include <cmath>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <string>
-#include <thread>
-#include <tuple>
-#include <vector>
-
-#include "Plots.hpp"
-#include "SERProcessor.hpp"
 #include "asi_helpers.hpp"
-#include "circular_buffer.hpp"
-#include "hello_imgui/hello_imgui.h"
-#include "timer.hpp"
-typedef struct _RESOLUTION_STRUCT {
-  char Name[64];  // the name of the Control like Exposure, Gain etc..
-  /*uint16_t*/ int MaxValue;
-  /*uint16_t*/ int MinValue = 0;
-  /*uint16_t*/ int DefaultValue;
-  /*uint16_t*/ int CurrentValue;
-  /*uint16_t*/ int AxisOffset;
-  /*uint16_t*/ int BinnedValue;
-  /*uint16_t*/ int BinndedAxisOffset;
-  uint16_t Bin;
-} RESOLUTION_STRUCT;
-typedef struct _STILL_IMAGE_STRUCT {
-  std::unique_ptr<uint8_t[]>
-      buffer;  // using a smart pointer is safer (and we don't
-  ASI_IMG_TYPE currentFormat;
-  size_t size = 0;
-  size_t ch = 1;
-  size_t byte_channel = 1;
-  SER::BAYER format;
-  std::array<size_t, 3> dim;
 
-  std::mutex mutex;
-  std::atomic_bool is_new = false;
-} STILL_IMAGE_STRUCT;
-typedef struct _STILL_STREAMING_STRUCT {
-  std::shared_ptr<Circular_Buffer<uint8_t>> buffer =
-      nullptr;  // using a smart pointer is safer (and we don't
-  ASI_IMG_TYPE currentFormat;
-  size_t size = 0;
-  size_t ch = 1;
-  size_t byte_channel = 1;
-  SER::BAYER format;
-  std::array<size_t, 3> dim;
-
-  bool do_record = false;
-  std::atomic_bool is_recording = false;
-  std::atomic_bool is_active = false;
-  std::string selectedFilename =
-      "/home/rsarwar/workspace/wkspace1/asi_planet/AstroCapture/build2/";
-  std::atomic_uint32_t nCaptured;
-  size_t fSpace = 0;
-  size_t aSpace = 0;
-} STILL_STREAMING_STRUCT;
-
-typedef struct _ASI_CONTROL_CAPS_CAST {
-  char Name[64];          // the name of the Control like Exposure, Gain etc..
-  char Description[128];  // description of this control
-  long MaxValue;
-  long MinValue;
-  long DefaultValue;
-  ASI_BOOL IsAutoSupported;  // support auto set 1, don't support 0
-  ASI_BOOL IsWritable;  // some control like temperature can only be read by
-                        // some cameras
-  ASI_CONTROL_TYPE
-  ControlType;  // this is used to get value and set value of the control
-  long current_value;
-  bool current_isauto;
-  char Unused[16];
-} ASI_CONTROL_CAPS_CAST;
-
-class ASIBase {
+class ASIBase : public CameraBase {
  public:
-  ASIBase(ASI_CAMERA_INFO _CameraInfo) {
-    is_connected = false;
-    is_running = false;
-    is_still = false;
-    do_abort = false;
+  ASIBase(ASI_CAMERA_INFO _CameraInfo) : CameraBase("ZWO") {
     mCameraInfo = _CameraInfo;
     print_camera_info();
 
@@ -127,9 +26,7 @@ class ASIBase {
 
   ~ASIBase() { Disconnect(); }
 
-  std::string getDefaultName() { return mCameraName; };
   uint32_t getDeviceID() { return mCameraID; };
-  std::string getDevName() { return mCameraName; }
 
   bool Disconnect() {
     if (!is_connected) return true;
@@ -190,8 +87,8 @@ class ASIBase {
     spdlog::info("Attempting to update controls for {}...", mCameraName);
     for (auto &cap : mControlCaps) {
       if (!cap.IsWritable) continue;
-      ASI_CONTROL_CAPS_CAST *rcap =
-          reinterpret_cast<ASI_CONTROL_CAPS_CAST *>(&cap);
+      CONTROL_CAPS_CAST *rcap =
+          reinterpret_cast<CONTROL_CAPS_CAST *>(&cap);
       auto ret =
           SetControlValue(rcap->ControlType, rcap->current_value,
                           rcap->IsAutoSupported ? rcap->current_isauto : false);
@@ -214,8 +111,8 @@ class ASIBase {
     spdlog::info("Attempting to retrieve controls for {}...", mCameraName);
     for (auto &cap : mControlCaps) {
       if (cap.IsWritable == ASI_FALSE) continue;
-      ASI_CONTROL_CAPS_CAST *rcap =
-          reinterpret_cast<ASI_CONTROL_CAPS_CAST *>(&cap);
+      CONTROL_CAPS_CAST *rcap =
+          reinterpret_cast<CONTROL_CAPS_CAST *>(&cap);
       auto curr = GetControlValue(rcap->ControlType);
       if (std::get<0>(curr) != ASI_SUCCESS)
         spdlog::critical("Failed to get value for {} ({}).", rcap->Name,
@@ -287,15 +184,15 @@ class ASIBase {
     mControlCaps.resize(piNumberOfControls);
     int i = 0;
     for (auto &cap : mControlCaps) {
-      ret = ASIGetControlCaps(mCameraID, i++, &cap);
+      ret = ASIGetControlCaps(mCameraID, i++, reinterpret_cast<ASI_CONTROL_CAPS*>(&cap));
       if (ret != ASI_SUCCESS) {
         spdlog::critical("Failed to get control information ({}).",
                          ASIHelpers::toString(ret));
         return false;
       }
 
-      ASI_CONTROL_CAPS_CAST *rcap =
-          reinterpret_cast<ASI_CONTROL_CAPS_CAST *>(&cap);
+      CONTROL_CAPS_CAST *rcap =
+          reinterpret_cast<CONTROL_CAPS_CAST *>(&cap);
       auto curr = GetControlValue(rcap->ControlType);
       if (std::get<0>(curr) != ASI_SUCCESS)
         spdlog::critical("Failed to get value ({}).",
@@ -751,7 +648,7 @@ class ASIBase {
     return true;
   }
 
- protected:
+ private:
   std::tuple<ASI_ERROR_CODE, uint32_t, bool> GetControlValue(
       ASI_CONTROL_TYPE _type) {
     std::tuple<ASI_ERROR_CODE, uint32_t, bool> ret;
@@ -768,39 +665,6 @@ class ASIBase {
     return ASISetControlValue(mCameraID, _type, val,
                               _auto ? ASI_TRUE : ASI_FALSE);
   }
-
-  STILL_IMAGE_STRUCT stillFrame;
-  STILL_STREAMING_STRUCT streamingFrames;
-
- public:
-  STILL_IMAGE_STRUCT *getImageFramePtr() { return &stillFrame; };
-  STILL_STREAMING_STRUCT *getStreamingFramePtr() { return &streamingFrames; };
-  std::string mCameraName;
-  size_t max_buffer_size = 512;
-  uint32_t mCameraID;
-  ASI_CAMERA_INFO mCameraInfo;
-  uint8_t mExposureRetry{0};
-  ASI_IMG_TYPE mCurrentStillFormat;
-
-  std::atomic_bool is_running;
-  std::atomic_bool is_connected;
-  std::atomic_bool is_still;
-  std::atomic_bool do_abort;
-  std::atomic_uint32_t m_dropped_frames;
-  std::atomic<float> m_fps;
-  std::atomic_uint32_t m_vc_escape;
-  std::atomic_uint32_t m_expo_escape;
-
-  std::array<RESOLUTION_STRUCT, 2> m_frame;
-  std::vector<std::string> m_supportedFormat_str;
-  std::vector<ASI_IMG_TYPE> m_supportedFormat;
-  std::vector<std::string> m_supportedBin;
-  uint8_t BinNumber = 1;
-
- public:
-  std::vector<ASI_CONTROL_CAPS> mControlCaps;
-  ASI_CONTROL_CAPS_CAST *mExposureCap;
-  ASI_CONTROL_CAPS_CAST mBandwidthCap;
 
   void print_camera_info() {
     spdlog::debug("Name: {}; ID: {}", mCameraInfo.Name, mCameraInfo.CameraID);
@@ -822,4 +686,14 @@ class ASIBase {
     spdlog::debug("PixelSize: {}; BitDepth: {}", mCameraInfo.PixelSize,
                   mCameraInfo.BitDepth);
   }
+
+ public:
+  uint32_t mCameraID;
+  ASI_CAMERA_INFO mCameraInfo;
+  uint8_t mExposureRetry{0};
+  ASI_IMG_TYPE mCurrentStillFormat;
+
+  std::atomic_uint32_t m_expo_escape, m_vc_escape;
+
+
 };

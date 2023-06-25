@@ -89,7 +89,7 @@ class Circular_Buffer {
     // if buffer is full, throw an error
     if (is_full()) {
       if (!logged) {
-        spdlog::critical("Streaming buffer is full, overwriting last buffer");
+        spdlog::warn("Streaming buffer is full, overwriting last buffer");
         logged = true;
       }
       return last();
