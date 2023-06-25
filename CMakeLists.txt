@@ -34,7 +34,6 @@ set(IMGUI_BUNDLE_FETCH_OPENCV ON CACHE STRING "" FORCE)
 set(IMMVISION_FETCH_OPENCV_FULL OFF CACHE STRING "" FORCE)
 set(IMMVISION_FETCH_OPENCV ON CACHE STRING "" FORCE)
 
-include_directories(build/./_deps/opencv_fetch-install/include/opencv4/)
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_module/")
 include(GNUInstallDirs)
 #find_package(ASI REQUIRED)
