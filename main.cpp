@@ -167,190 +167,218 @@ int main(int, char **) {
   // Part 1: Define the application state, fill the status and menu bars, and
   // load additional font
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  PlotWidget plotWidget;
-  ViewPort viewPort;
-  CameraWindow cameraWindow;
-  AboutWindow aboutWindow;
-  Acknowledgments acknowledgments;
-  vp = &viewPort;
-  // Our application state
+  try {
+    PlotWidget plotWidget;
+    ViewPort viewPort;
+    CameraWindow cameraWindow;
+    AboutWindow aboutWindow;
+    Acknowledgments acknowledgments;
+    vp = &viewPort;
+    // Our application state
 
-  struct sigaction sa;
-  signal(SIGINT, captured_ctrl_c);
-  memset(&sa, 0, sizeof(struct sigaction));
-  sigemptyset(&sa.sa_mask);
-  sa.sa_sigaction = segfault_sigaction;
-  sa.sa_flags = SA_SIGINFO;
-  sigaction(SIGSEGV, &sa, NULL);
+    struct sigaction sa;
+    signal(SIGINT, captured_ctrl_c);
+    memset(&sa, 0, sizeof(struct sigaction));
+    sigemptyset(&sa.sa_mask);
+    sa.sa_sigaction = segfault_sigaction;
+    sa.sa_flags = SA_SIGINFO;
+    sigaction(SIGSEGV, &sa, NULL);
 
-  // Hello ImGui params (they hold the settings as well as the Gui callbacks)
-  HelloImGui::RunnerParams runnerParams;
+    // Hello ImGui params (they hold the settings as well as the Gui callbacks)
+    HelloImGui::RunnerParams runnerParams;
 
-  runnerParams.appWindowParams.windowTitle = "AstroCapture";
-  runnerParams.appWindowParams.windowGeometry.size = {800, 600};
-  runnerParams.appWindowParams.restorePreviousGeometry = true;
+    runnerParams.appWindowParams.windowTitle = "AstroCapture";
+    runnerParams.appWindowParams.windowGeometry.size = {800, 600};
+    runnerParams.appWindowParams.restorePreviousGeometry = true;
 
-  //
-  // Status bar
-  //
-  // We use the default status bar of Hello ImGui
-  runnerParams.imGuiWindowParams.showStatusBar = true;
-  // uncomment next line in order to hide the FPS in the status bar
-  // runnerParams.imGuiWindowParams.showStatus_Fps = false;
-  runnerParams.callbacks.ShowStatus = [] { StatusBarGui(); };
+    //
+    // Status bar
+    //
+    // We use the default status bar of Hello ImGui
+    runnerParams.imGuiWindowParams.showStatusBar = true;
+    // uncomment next line in order to hide the FPS in the status bar
+    // runnerParams.imGuiWindowParams.showStatus_Fps = false;
+    runnerParams.callbacks.ShowStatus = [] { StatusBarGui(); };
 
-  MenuBar(runnerParams);
+    MenuBar(runnerParams);
 
-  // Custom load fonts
-  runnerParams.callbacks.LoadAdditionalFonts = MyLoadFonts;
+    // Custom load fonts
+    runnerParams.callbacks.LoadAdditionalFonts = MyLoadFonts;
 
-  // optional native events handling
+    // optional native events handling
 
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Part 2: Define the application layout and windows
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Part 2: Define the application layout and windows
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  //
-  //    2.1 Define the docking splits,
-  //    i.e. the way the screen space is split in different target zones for the
-  //    dockable windows
-  //     We want to split "MainDockSpace" (which is provided automatically) into
-  //     three zones, like this:
-  //
-  //    ___________________________________________
-  //    |        |                                |
-  //    | Left   |                                |
-  //    | Space  |    MainDockSpace               |
-  //    |        |                                |
-  //    |        |                                |
-  //    |        |                                |
-  //    -------------------------------------------
-  //    |     BottomSpace                         |
-  //    -------------------------------------------
-  //
+    //
+    //    2.1 Define the docking splits,
+    //    i.e. the way the screen space is split in different target zones for
+    //    the dockable windows
+    //     We want to split "MainDockSpace" (which is provided automatically)
+    //     into three zones, like this:
+    //
+    //    ___________________________________________
+    //    |        |                                |
+    //    | Left   |                                |
+    //    | Space  |    MainDockSpace               |
+    //    |        |                                |
+    //    |        |                                |
+    //    |        |                                |
+    //    -------------------------------------------
+    //    |     BottomSpace                         |
+    //    -------------------------------------------
+    //
 
-  // First, tell HelloImGui that we want full screen dock space (this will
-  // create "MainDockSpace")
-  runnerParams.imGuiWindowParams.defaultImGuiWindowType =
-      HelloImGui::DefaultImGuiWindowType::ProvideFullScreenDockSpace;
-  // In this demo, we also demonstrate multiple viewports.
-  // you can drag windows outside out the main window in order to put their
-  // content into new native windows
-  runnerParams.imGuiWindowParams.enableViewports = true;
+    // First, tell HelloImGui that we want full screen dock space (this will
+    // create "MainDockSpace")
+    runnerParams.imGuiWindowParams.defaultImGuiWindowType =
+        HelloImGui::DefaultImGuiWindowType::ProvideFullScreenDockSpace;
+    // In this demo, we also demonstrate multiple viewports.
+    // you can drag windows outside out the main window in order to put their
+    // content into new native windows
+    runnerParams.imGuiWindowParams.enableViewports = true;
 
-  // Then, add a space named "BottomSpace" whose height is 25% of the app
-  // height. This will split the preexisting default dockspace "MainDockSpace"
-  // in two parts.
-  HelloImGui::DockingSplit splitMainBottom;
-  splitMainBottom.initialDock = "MainDockSpace";
-  splitMainBottom.newDock = "BottomSpace";
-  splitMainBottom.direction = ImGuiDir_Down;
-  splitMainBottom.ratio = 0.25f;
+    // Then, add a space named "BottomSpace" whose height is 25% of the app
+    // height. This will split the preexisting default dockspace "MainDockSpace"
+    // in two parts.
+    HelloImGui::DockingSplit splitMainBottom;
+    splitMainBottom.initialDock = "MainDockSpace";
+    splitMainBottom.newDock = "BottomSpace";
+    splitMainBottom.direction = ImGuiDir_Down;
+    splitMainBottom.ratio = 0.25f;
 
-  // Then, add a space to the left which occupies a column whose width is 25% of
-  // the app width
-  HelloImGui::DockingSplit splitMainLeft;
-  splitMainLeft.initialDock = "MainDockSpace";
-  splitMainLeft.newDock = "LeftSpace";
-  splitMainLeft.direction = ImGuiDir_Left;
-  splitMainLeft.ratio = 0.25f;
+    // Then, add a space to the left which occupies a column whose width is 25%
+    // of the app width
+    HelloImGui::DockingSplit splitMainLeft;
+    splitMainLeft.initialDock = "MainDockSpace";
+    splitMainLeft.newDock = "LeftSpace";
+    splitMainLeft.direction = ImGuiDir_Left;
+    splitMainLeft.ratio = 0.25f;
 
-  // Finally, transmit these splits to HelloImGui
-  runnerParams.dockingParams.dockingSplits = {splitMainBottom, splitMainLeft};
+    // Finally, transmit these splits to HelloImGui
+    runnerParams.dockingParams.dockingSplits = {splitMainBottom, splitMainLeft};
 
-  //
-  // 2.1 Define our dockable windows : each window provide a Gui callback, and
-  // will be displayed
-  //     in a docking split.
-  //
-  // Our gui providers for the different windows
+    //
+    // 2.1 Define our dockable windows : each window provide a Gui callback, and
+    // will be displayed
+    //     in a docking split.
+    //
+    // Our gui providers for the different windows
 
-  // A Command panel named "Commands" will be placed in "LeftSpace". Its Gui is
-  // provided calls "CommandGui"
-  // HelloImGui::DockableWindow pCameraWindow;
-  //{
-  //    pCameraWindow.label = "Camera";
-  //    pCameraWindow.dockSpaceName = "LeftSpace";
-  //    //pCameraWindow.GuiFunction = [&appState]() { CommandGui(appState); };
-  //}
-  // A Command panel named "Commands" will be placed in "LeftSpace". Its Gui is
-  // provided calls "CommandGui"
-  HelloImGui::DockableWindow commandsWindow;
-  {
-    commandsWindow.label = "Commands";
-    commandsWindow.dockSpaceName = "LeftSpace";
-    commandsWindow.GuiFunction = [&cameraWindow] { cameraWindow.gui(); };
-  }
-  // A Log  window named "Logs" will be placed in "BottomSpace". It uses the
-  // HelloImGui logger gui
-  HelloImGui::DockableWindow plotWindow;
-  {
-    plotWindow.label = "Statistics";
-    plotWindow.dockSpaceName = "BottomSpace";
-    plotWindow.GuiFunction = [&plotWidget] { plotWidget.gui(); };
-  }
-  HelloImGui::DockableWindow logsWindow;
-  {
-    logsWindow.label = "Logs";
-    logsWindow.dockSpaceName = "BottomSpace";
-    logsWindow.GuiFunction = [] { HelloImGui::LogGui(); };
-  }
-  // A Window named "Dear ImGui Demo" will be placed in "MainDockSpace"
-  HelloImGui::DockableWindow captureWindow;
-  {
-    captureWindow.label = "ViewPort";
-    captureWindow.dockSpaceName = "MainDockSpace";
-    captureWindow.GuiFunction = [&viewPort] { viewPort.gui(); };
-  }
-  HelloImGui::DockableWindow dock_acknowledgments;
-  {
-    dock_acknowledgments.label = "Acknowledgments";
-    dock_acknowledgments.dockSpaceName = "MainDockSpace";
-    dock_acknowledgments.isVisible = false;
-    dock_acknowledgments.includeInViewMenu = false;
-    dock_acknowledgments.GuiFunction = [&acknowledgments] {
-      acknowledgments.gui();
+    // A Command panel named "Commands" will be placed in "LeftSpace". Its Gui
+    // is provided calls "CommandGui" HelloImGui::DockableWindow pCameraWindow;
+    //{
+    //    pCameraWindow.label = "Camera";
+    //    pCameraWindow.dockSpaceName = "LeftSpace";
+    //    //pCameraWindow.GuiFunction = [&appState]() { CommandGui(appState); };
+    //}
+    // A Command panel named "Commands" will be placed in "LeftSpace". Its Gui
+    // is provided calls "CommandGui"
+    HelloImGui::DockableWindow commandsWindow;
+    {
+      commandsWindow.label = "Commands";
+      commandsWindow.dockSpaceName = "LeftSpace";
+      commandsWindow.GuiFunction = [&cameraWindow] { cameraWindow.gui(); };
+    }
+    // A Log  window named "Logs" will be placed in "BottomSpace". It uses the
+    // HelloImGui logger gui
+    HelloImGui::DockableWindow plotWindow;
+    {
+      plotWindow.label = "Statistics";
+      plotWindow.dockSpaceName = "BottomSpace";
+      plotWindow.GuiFunction = [&plotWidget] { plotWidget.gui(); };
+    }
+    HelloImGui::DockableWindow logsWindow;
+    {
+      logsWindow.label = "Logs";
+      logsWindow.dockSpaceName = "BottomSpace";
+      logsWindow.GuiFunction = [] { HelloImGui::LogGui(); };
+    }
+    // A Window named "Dear ImGui Demo" will be placed in "MainDockSpace"
+    HelloImGui::DockableWindow captureWindow;
+    {
+      captureWindow.label = "ViewPort";
+      captureWindow.dockSpaceName = "MainDockSpace";
+      captureWindow.GuiFunction = [&viewPort] { viewPort.gui(); };
+    }
+    HelloImGui::DockableWindow dock_acknowledgments;
+    {
+      dock_acknowledgments.label = "Acknowledgments";
+      dock_acknowledgments.dockSpaceName = "MainDockSpace";
+      dock_acknowledgments.isVisible = false;
+      dock_acknowledgments.includeInViewMenu = false;
+      dock_acknowledgments.GuiFunction = [&acknowledgments] {
+        acknowledgments.gui();
+      };
     };
-  };
-  HelloImGui::DockableWindow dock_about;
-  {
-    dock_about.label = "About";
-    dock_about.dockSpaceName = "MainDockSpace";
-    dock_about.isVisible = false;
-    dock_about.includeInViewMenu = false;
-    dock_about.GuiFunction = [&aboutWindow] { aboutWindow.gui(); };
-  };
-  // Finally, transmit these windows to HelloImGui
-  runnerParams.dockingParams.dockableWindows = {
-      dock_about, commandsWindow,       logsWindow,
-      plotWindow, dock_acknowledgments, captureWindow};
-  aboutWindow.isVisible =
-      &(runnerParams.dockingParams.dockableWindowOfName("About")->isVisible);
-  acknowledgments.isVisible =
-      &(runnerParams.dockingParams.dockableWindowOfName("Acknowledgments")
-            ->isVisible);
-  //
-  // Menu bar
-  //
-  // We use the default menu of Hello ImGui, to which we add some more items
+    HelloImGui::DockableWindow dock_about;
+    {
+      dock_about.label = "About";
+      dock_about.dockSpaceName = "MainDockSpace";
+      dock_about.isVisible = false;
+      dock_about.includeInViewMenu = false;
+      dock_about.GuiFunction = [&aboutWindow] { aboutWindow.gui(); };
+    };
+    // Finally, transmit these windows to HelloImGui
+    runnerParams.dockingParams.dockableWindows = {
+        dock_about, commandsWindow,       logsWindow,
+        plotWindow, dock_acknowledgments, captureWindow};
+    aboutWindow.isVisible =
+        &(runnerParams.dockingParams.dockableWindowOfName("About")->isVisible);
+    acknowledgments.isVisible =
+        &(runnerParams.dockingParams.dockableWindowOfName("Acknowledgments")
+              ->isVisible);
+    //
+    // Menu bar
+    //
+    // We use the default menu of Hello ImGui, to which we add some more items
 
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Part 3: Run the app
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  auto addons = ImmApp::AddOnsParams();
-  addons.withMarkdown = true;
-  addons.withNodeEditor = true;
-  addons.withMarkdown = true;
-  addons.withImplot = true;
-  addons.withTexInspect = true;
-  // Also clear ImmVision cache at exit (and before OpenGl is uninitialized)
-  auto oldBeforeExitCopy = runnerParams.callbacks.BeforeExit;
-  auto newBeforeExit = [&runnerParams, oldBeforeExitCopy]() {
-    if (oldBeforeExitCopy) oldBeforeExitCopy();
-    ImmVision::ClearTextureCache();
-  };
-  runnerParams.callbacks.BeforeExit = newBeforeExit;
-  ImmApp::Run(runnerParams, addons);
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Part 3: Run the app
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    auto addons = ImmApp::AddOnsParams();
+    addons.withMarkdown = true;
+    addons.withNodeEditor = true;
+    addons.withMarkdown = true;
+    addons.withImplot = true;
+    addons.withTexInspect = true;
+    // Also clear ImmVision cache at exit (and before OpenGl is uninitialized)
+    auto oldBeforeExitCopy = runnerParams.callbacks.BeforeExit;
+    auto newBeforeExit = [&runnerParams, oldBeforeExitCopy]() {
+      if (oldBeforeExitCopy) oldBeforeExitCopy();
+      ImmVision::ClearTextureCache();
+    };
+    runnerParams.callbacks.BeforeExit = newBeforeExit;
+    ImmApp::Run(runnerParams, addons);
+  }
+  catch (const std::runtime_error &ex) {
+    spdlog::critical(
+        "captured runtime exception: {}; executing graceful exit just to be safe ", ex.what());
+    if (vp != nullptr) vp->close_threads();
+    if (CameraWindow::pCamera != nullptr)
+      if ((CameraWindow::pCamera->is_connected))
+        CameraWindow::pCamera->Disconnect();
+    exit(-1);
+  }
+  catch (const std::exception &ex) {
+    spdlog::critical(
+        "captured exception: {}; executing graceful exit just to be safe ", ex.what());
+    if (vp != nullptr) vp->close_threads();
+    if (CameraWindow::pCamera != nullptr)
+      if ((CameraWindow::pCamera->is_connected))
+        CameraWindow::pCamera->Disconnect();
+    exit(-1);
+  }
+  catch (...) {
+    spdlog::critical(
+        "captured undefined exception; executing graceful exit just to be safe ");
+    if (vp != nullptr) vp->close_threads();
+    if (CameraWindow::pCamera != nullptr)
+      if ((CameraWindow::pCamera->is_connected))
+        CameraWindow::pCamera->Disconnect();
+    exit(-1);
+  }
 
   return 0;
 }
