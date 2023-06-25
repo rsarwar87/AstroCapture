@@ -421,8 +421,8 @@ class ASIBase {
 
       ASIGetDroppedFrames(mCameraID, &droppedcount);
       m_dropped_frames = droppedcount;
-      if (timer.Finish() > 1000) {
-        m_fps = float(count) * 1000. / float(timer.Finish());
+      if (timer.Finish() > 500) {
+        m_fps = float(count) * 500. / float(timer.Finish());
         m_vc_escape = escaped.Finish();
         timer.Start();
         spdlog::debug("Capturing at {} fps. Dropped frame {}", m_fps,
