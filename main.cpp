@@ -110,21 +110,7 @@ void MenuBar(HelloImGui::RunnerParams &runnerParams) {
         runnerParams.dockingParams.dockableWindowOfName("About");
     HelloImGui::DockableWindow *acknowledgmentWindow =
         runnerParams.dockingParams.dockableWindowOfName("Acknowledgments");
-    if (ImGui::BeginMenu("Links and About")) {
-      ImGui::TextDisabled("Links");
-      if (ImGui::MenuItem("ImGui Github repository"))
-        HyperlinkHelper::OpenUrl("https://github.com/ocornut/imgui");
-      if (ImGui::MenuItem("ImGui wiki"))
-        HyperlinkHelper::OpenUrl("https://github.com/ocornut/imgui/wiki");
-      if (ImGui::MenuItem("imgui-docs: nice third party ImGui Documentation"))
-        HyperlinkHelper::OpenUrl(
-            "https://possiblyashrub.github.io/imgui-docs/");
-      if (ImGui::MenuItem("imgui-manual"))
-        HyperlinkHelper::OpenUrl("https://github.com/pthom/imgui_manual");
-      if (ImGui::MenuItem("Online interactive imgui-manual"))
-        HyperlinkHelper::OpenUrl(
-            "https://pthom.github.io/imgui_manual_online/");
-
+    if (ImGui::BeginMenu("About")) {
       ImGui::Separator();
       ImGui::TextDisabled("About this app");
       if (ImGui::MenuItem("About")) {

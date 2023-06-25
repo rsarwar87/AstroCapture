@@ -37,6 +37,7 @@
 #include <tuple>
 #include <vector>
 
+#include "Plots.hpp"
 #include "SERProcessor.hpp"
 #include "asi_helpers.hpp"
 #include "circular_buffer.hpp"
@@ -426,6 +427,7 @@ class ASIBase {
         timer.Start();
         spdlog::debug("Capturing at {} fps. Dropped frame {}", m_fps,
                       m_dropped_frames);
+        processStat.fps.push(m_fps);
         count = 0;
       }
 

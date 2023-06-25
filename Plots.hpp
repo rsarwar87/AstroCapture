@@ -18,12 +18,15 @@ typedef struct {
   CircularBuffer<float, 100> processMemUsage;
   CircularBuffer<float, 100> totalCPUseage;
   CircularBuffer<float, 100> processCPUseage;
+  std::array<CircularBuffer<float, 256>, 3> histograms_accumulated;
+  std::array<CircularBuffer<float, 256>, 3> histograms;
+  std::array<cv::MatND, 3> hist;
   CircularBuffer<float, 100> fps;
-  CircularBuffer<float, 100> buffer;
   float max_phy;
   float max_fps;
   float max_buf;
 } processMem_t;
+processMem_t processStat;
 
 class PlotWidget {
  public:
@@ -54,12 +57,11 @@ class PlotWidget {
       ImGui::TableSetupColumn("Trace");
       ImGui::TableHeadersRow();
       ImPlot::PushColormap(ImPlotColormap_Cool);
+      TablePlot("FPS", processStat.fps.get_buffer(), 0, 100); 
       TablePlot("Total CPU", processStat.totalCPUseage.get_buffer(), 0); 
-      TablePlot("Total RAM", processStat.totalPhysMem.get_buffer(), 0, processStat.max_phy); 
+      TablePlot("Free RAM", processStat.totalPhysMem.get_buffer(), 0, processStat.max_phy); 
       TablePlot("Self CPU", processStat.processCPUseage.get_buffer(), 0); 
       TablePlot("Self RAM", processStat.processMemUsage.get_buffer(), 0, processStat.max_phy); 
-      TablePlot("FPS", processStat.fps.get_buffer(), 0, 100); 
-      TablePlot("FPS", processStat.fps.get_buffer(), 0, 100); 
       ImPlot::PopColormap();
       ImGui::EndTable();
     }
@@ -95,7 +97,6 @@ class PlotWidget {
     }
     ImPlot::PopStyleVar();
   }
-  processMem_t processStat;
   ProcessInfo process;
   SystemInformation sys_info;
   void update_sys_info() {
