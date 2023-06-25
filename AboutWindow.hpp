@@ -12,15 +12,18 @@ public:
 private:
     void guiHelp() {
         std::string help = R"(
-Note: an online playground provided with this manual enables you to test ImGui without any installation:
-* [see a demo](https://youtu.be/FJgObNNmuzo)
-* [launch the playground](https://gitpod.io/#https://github.com/pthom/imgui_manual).
+This app was primarily made to allow fast video capture on linux aarch64 platforms. But FireCapture, a popular linux video capture JAVA-based software was difficult to run due to limited resurces on SBCs.
+This lead to the making of a CPP application targeting 64-bit architecture. The application was tested in RaspPi4 and Rock5b.
 
-This interactive manual was developed using [Hello ImGui](https://github.com/pthom/hello_imgui), which provided the emscripten port, as well as the assets embedding and image loading. ImGuiManual.cpp gives a good overview of [Hello Imgui API](https://github.com/pthom/hello_imgui/blob/master/src/hello_imgui/hello_imgui_api.md).
+Recomended hardware:
+* at least four CPU cores (hex-core recommended)
+* at least 4 GB RAM DDR4 (dual-channel recommended)
+* OpenGL/OpenGLES3 support (hardware acceleration recommended)
+* 500 GB SSD (NVMe recommended)
 
-See also a [related demo for Implot](https://traineq.org/implot_demo/src/implot_demo.html).
+For full speed download, a PCIe 2.0 NVMe is needed, these include Rock 3A and Rock 4SE and Rock 5B. It however runs okay on RPi4.
 
-[I'd love to read your feedback!](https://github.com/pthom/imgui_manual/issues/1)
+[I'd love to read your feedback!](https://github.com/rsarwar87/AstroCapture/issues)
 )";
         ImGuiMd::Render(help.c_str());
         if (isVisible != nullptr && ImGui::Button(ICON_FA_THUMBS_UP " Got it"))
