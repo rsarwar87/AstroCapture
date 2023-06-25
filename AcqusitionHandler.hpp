@@ -23,12 +23,15 @@ class AcqManager {
     viewingThread = std::thread(AcqManager::HelperUpdateView, this);
     recordingThread = std::thread(AcqManager::HelperRecordStream, this);
   }
-  ~AcqManager() {
+  void close_threads(){
     abort_view = true;
     spdlog::info("Waiting for AcqManager threads to end");
     recordingThread.join();
     viewingThread.join();
     spdlog::info("AcqManager threads to closed");
+  }
+  ~AcqManager() {
+    close_threads();
   }
 
  protected:
