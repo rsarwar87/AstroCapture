@@ -25,7 +25,6 @@
 
 #include <libasi/ASICamera2.h>
 #include <spdlog/spdlog.h>
-#include "SERProcessor.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -38,6 +37,7 @@
 #include <tuple>
 #include <vector>
 
+#include "SERProcessor.hpp"
 #include "asi_helpers.hpp"
 #include "circular_buffer.hpp"
 #include "hello_imgui/hello_imgui.h"
@@ -79,7 +79,8 @@ typedef struct _STILL_STREAMING_STRUCT {
   bool do_record = false;
   std::atomic_bool is_recording = false;
   std::atomic_bool is_active = false;
-  std::string selectedFilename = "/home/rsarwar/workspace/wkspace1/asi_planet/AstroCapture/build2/";
+  std::string selectedFilename =
+      "/home/rsarwar/workspace/wkspace1/asi_planet/AstroCapture/build2/";
   std::atomic_uint32_t nCaptured;
   size_t fSpace = 0;
   size_t aSpace = 0;
@@ -132,8 +133,7 @@ class ASIBase {
   bool Disconnect() {
     if (!is_connected) return true;
     spdlog::info("Attempting to Close {}...", mCameraName);
-    if (is_running)
-    {
+    if (is_running) {
       AbortExposure();
       std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
@@ -345,8 +345,7 @@ class ASIBase {
       return false;
     }
     SetCCDBin(BinNumber);
-    if (!SetCCDROI()) 
-    {
+    if (!SetCCDROI()) {
       spdlog::critical("Failed to set ROI");
       return false;
     }
@@ -384,14 +383,18 @@ class ASIBase {
     streamingFrames.format = SER::BAYER::COLOR_RGB;
     streamingFrames.currentFormat = mCurrentStillFormat;
 
-    if (streamingFrames.ch == 1)
-    {
-      if (streamingFrames.ch) streamingFrames.format = SER::BAYER::COLOR_MONO;
+    if (streamingFrames.ch == 1) {
+      if (streamingFrames.ch)
+        streamingFrames.format = SER::BAYER::COLOR_MONO;
       else {
-        if (std::get<0>(imgFormat) == ASIHelpers::RGGB) streamingFrames.format = SER::BAYER::COLOR_BAYER_RGGB; 
-        else if (std::get<0>(imgFormat) == ASIHelpers::BGGR) streamingFrames.format = SER::BAYER::COLOR_BAYER_BGGR;
-        else if (std::get<0>(imgFormat) == ASIHelpers::GRBG) streamingFrames.format = SER::BAYER::COLOR_BAYER_GRBG;
-        else if (std::get<0>(imgFormat) == ASIHelpers::GBRG) streamingFrames.format = SER::BAYER::COLOR_BAYER_GBRG;
+        if (std::get<0>(imgFormat) == ASIHelpers::RGGB)
+          streamingFrames.format = SER::BAYER::COLOR_BAYER_RGGB;
+        else if (std::get<0>(imgFormat) == ASIHelpers::BGGR)
+          streamingFrames.format = SER::BAYER::COLOR_BAYER_BGGR;
+        else if (std::get<0>(imgFormat) == ASIHelpers::GRBG)
+          streamingFrames.format = SER::BAYER::COLOR_BAYER_GRBG;
+        else if (std::get<0>(imgFormat) == ASIHelpers::GBRG)
+          streamingFrames.format = SER::BAYER::COLOR_BAYER_GBRG;
       }
     }
 
@@ -400,6 +403,9 @@ class ASIBase {
 
     streamingFrames.is_active = true;
     int droppedcount = 0;
+    uint8_t *targetFrame = nullptr;
+    bool get_new_buffer = true;
+
     while (true) {
       if (do_abort) {
         spdlog::info("aborting .");
@@ -423,9 +429,10 @@ class ASIBase {
         count = 0;
       }
 
-      uint8_t *targetFrame =
-          streamingFrames.buffer
-              ->get_new_buffer();  // PrimaryCCD.getFrameBuffer();
+      if (get_new_buffer) {
+        targetFrame = streamingFrames.buffer->get_new_buffer();
+        get_new_buffer = true;
+      }
       if (targetFrame == nullptr) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         continue;
@@ -443,7 +450,8 @@ class ASIBase {
           return false;
         }
         spdlog::critical("ASIGetVideoData status timed out ({})",
-                           ASIHelpers::toString(ret));
+                         ASIHelpers::toString(ret));
+        get_new_buffer = false;
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         continue;
       }
@@ -459,7 +467,7 @@ class ASIBase {
     spdlog::info("Capture completed .");
     is_running = false;
     streamingFrames.do_record = false;
-    while (streamingFrames.is_recording) 
+    while (streamingFrames.is_recording)
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     streamingFrames.is_active = false;
 
@@ -474,8 +482,7 @@ class ASIBase {
     }
 
     SetCCDBin(BinNumber);
-    if (!SetCCDROI()) 
-    {
+    if (!SetCCDROI()) {
       spdlog::critical("Failed to set ROI");
       return false;
     }
@@ -575,21 +582,26 @@ class ASIBase {
     if (stillFrame.currentFormat == ASI_IMG_RGB24)
       sort_rgb24(stillFrame.buffer.get(), imgFormat);
     spdlog::debug(
-        "Downloaded exposure... ({}x{} #{} channels, {} bytes; total: {}) ",
+        "Downloaded exposure... ({}x{} #{} channels, {} bytes; total: {} {}) ",
         std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
-        std::get<1>(imgFormat)[2], std::get<2>(imgFormat), nTotalBytes);
+        std::get<1>(imgFormat)[2], std::get<2>(imgFormat), nTotalBytes, 
+        ASIHelpers::toString(mCurrentStillFormat));
     stillFrame.size = nTotalBytes;
     stillFrame.ch = std::get<1>(imgFormat)[2];
     stillFrame.byte_channel = std::get<2>(imgFormat);
     stillFrame.format = SER::BAYER::COLOR_RGB;
-    if (stillFrame.ch == 1)
-    {
-      if (stillFrame.ch) stillFrame.format = SER::BAYER::COLOR_MONO;
+    if (stillFrame.ch == 1) {
+      if (stillFrame.ch)
+        stillFrame.format = SER::BAYER::COLOR_MONO;
       else {
-        if (std::get<0>(imgFormat) == ASIHelpers::RGGB) stillFrame.format = SER::BAYER::COLOR_BAYER_RGGB; 
-        else if (std::get<0>(imgFormat) == ASIHelpers::BGGR) stillFrame.format = SER::BAYER::COLOR_BAYER_BGGR;
-        else if (std::get<0>(imgFormat) == ASIHelpers::GRBG) stillFrame.format = SER::BAYER::COLOR_BAYER_GRBG;
-        else if (std::get<0>(imgFormat) == ASIHelpers::GBRG) stillFrame.format = SER::BAYER::COLOR_BAYER_GBRG;
+        if (std::get<0>(imgFormat) == ASIHelpers::RGGB)
+          stillFrame.format = SER::BAYER::COLOR_BAYER_RGGB;
+        else if (std::get<0>(imgFormat) == ASIHelpers::BGGR)
+          stillFrame.format = SER::BAYER::COLOR_BAYER_BGGR;
+        else if (std::get<0>(imgFormat) == ASIHelpers::GRBG)
+          stillFrame.format = SER::BAYER::COLOR_BAYER_GRBG;
+        else if (std::get<0>(imgFormat) == ASIHelpers::GBRG)
+          stillFrame.format = SER::BAYER::COLOR_BAYER_GBRG;
       }
     }
     stillFrame.dim = {std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
@@ -727,7 +739,7 @@ class ASIBase {
   }
   bool StopVideoCapture() {
     ASI_ERROR_CODE ret = ASIStopVideoCapture(mCameraInfo.CameraID);
-    if (!is_running && is_still) return true;
+    //if (!is_running && is_still) return true;
     if (ret != ASI_SUCCESS) {
       spdlog::critical("Failed to stop video capture {}: {}", mCameraName,
                        ASIHelpers::toString(ret));
