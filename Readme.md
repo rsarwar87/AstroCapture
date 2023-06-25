@@ -1,4 +1,4 @@
-=== Planetary captuer software
+### Planetary captuer software
 
 
 This app was primarily made to allow fast video capture on linux aarch64 platforms. But FireCapture, a popular linux video capture JAVA-based software was difficult to run due to limited resurces on SBCs.
@@ -14,11 +14,11 @@ For full speed download, a PCIe 2.0 NVMe is needed, these include Rock 3A and Ro
 
 [I'd love to read your feedback!](https://github.com/rsarwar87/AstroCapture/issues)
 
-== Building
-'''
+## Building
+```
 git clone
-'''
-== Acknowledgement
+```
+## Acknowledgement
 
 This manual uses some great libraries, which are shown below.
 * [OpenCV -- statically linked](https://opencv.org/)
