@@ -465,8 +465,15 @@ class ASIBase {
       return false;
     }
 
-    if (!SetCCDROI()) return false;
-    if (!UpdateExposure()) return false;
+    if (!SetCCDROI()) 
+    {
+      spdlog::critical("Failed to set ROI");
+      return false;
+    }
+    if (!UpdateExposure()) {
+      spdlog::critical("Failed to update Exposure");
+      return false;
+    }
     if (stillFrame.is_new) {
       stillFrame.is_new = false;
       spdlog::warn(
@@ -578,6 +585,7 @@ class ASIBase {
     }
     stillFrame.dim = {std::get<1>(imgFormat)[0], std::get<1>(imgFormat)[1],
                       std::get<1>(imgFormat)[2]};
+    spdlog::debug("unlock ...");
     stillFrame.mutex.unlock();
     stillFrame.is_new = true;
 
