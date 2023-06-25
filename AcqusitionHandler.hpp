@@ -135,6 +135,7 @@ class AcqManager {
               u_int8_t* buf = ptr->buffer.get();
               updateImage(ptr, buf);
               ptr->is_new = false;
+              ptr->mutex.unlock();
             }
           }
         }
@@ -151,8 +152,9 @@ class AcqManager {
   std::thread viewingThread;
   void updateImage(auto ptr, auto buf, std::string str = "StillFrame") {
     if (updatingFrame.try_lock()) {
-      spdlog::debug("Got new {}, {} KB {} CH, {}x{}", str, ptr->size / 1024,
-                    ptr->ch, ptr->dim[0], ptr->dim[1]);
+      spdlog::debug("Got new {}, {} KB {} CH, {}x{} {} {}", str, ptr->size / 1024,
+                    ptr->ch, ptr->dim[0], ptr->dim[1], (ptr->byte_channel - 1) * 2, 
+                    CV_MAKETYPE((ptr->byte_channel - 1) * 2, ptr->ch));
       mImage = cv::Mat(ptr->dim[0], ptr->dim[1],
                        CV_MAKETYPE((ptr->byte_channel - 1) * 2, ptr->ch), buf);
       updatingFrame.unlock();
