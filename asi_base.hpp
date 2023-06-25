@@ -431,10 +431,10 @@ class ASIBase {
         count = 0;
       }
 
-      if (get_new_buffer) {
+      if (get_new_buffer) 
         targetFrame = streamingFrames.buffer->get_new_buffer();
+      else
         get_new_buffer = true;
-      }
       if (targetFrame == nullptr) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         continue;
