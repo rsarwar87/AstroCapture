@@ -16,8 +16,14 @@ For full speed download, a PCIe 2.0 NVMe is needed, these include Rock 3A and Ro
 
 ## Building
 ```
-git clone
+sudo apt-get install libgles2-mesa libgles2-mesa-dev xorg-dev libusb-1.0-0-dev pkg-config libudev-dev libxi-dev libxrandr-dev 
+git clone git@github.com:rsarwar87/AstroCapture.git --recurse-submodules
+mkdir build
+cd build
+cmake ../ -DIMMVISION_FETCH_OPENCV=ON -DIMGUI_BUNDLE_WITH_SDL=ON
 ```
+
+If i am missing any prerequisite libraries, please let me know and i'll add it in.
 ## Acknowledgement
 
 This manual uses some great libraries, which are shown below.
