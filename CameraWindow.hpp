@@ -246,13 +246,12 @@ class CameraWindow {
       pCamera->mCurrentStillFormat = pCamera->m_supportedFormat[fmt];
     }
     if (ImGui::Combo("Binning", &bin, &items_bin[0], items_bin.size())) {
-      int number = 0;
       std::from_chars(pCamera->m_supportedBin[bin].data(),
                       pCamera->m_supportedBin[bin].data() +
                           pCamera->m_supportedBin[bin].size(),
-                      number);
-      HelloImGui::Log(HelloImGui::LogLevel::Info, "Binning %d", number);
-      pCamera->SetCCDBin(number);
+                       pCamera->BinNumber);
+      HelloImGui::Log(HelloImGui::LogLevel::Info, "Binning %d", pCamera->BinNumber);
+      pCamera->SetCCDBin(pCamera->BinNumber);
     }
 
     if (pCamera->is_running) ImGui::EndDisabled();

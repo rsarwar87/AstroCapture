@@ -344,8 +344,16 @@ class ASIBase {
       HelloImGui::Log(HelloImGui::LogLevel::Error, "camera is busy");
       return false;
     }
-    if (!SetCCDROI()) return false;
-    if (!UpdateExposure()) return false;
+    SetCCDBin(BinNumber);
+    if (!SetCCDROI()) 
+    {
+      spdlog::critical("Failed to set ROI");
+      return false;
+    }
+    if (!UpdateExposure()) {
+      spdlog::critical("Failed to update Exposure");
+      return false;
+    }
 
     Timer escaped;
     Timer timer;
@@ -465,6 +473,7 @@ class ASIBase {
       return false;
     }
 
+    SetCCDBin(BinNumber);
     if (!SetCCDROI()) 
     {
       spdlog::critical("Failed to set ROI");
@@ -772,6 +781,7 @@ class ASIBase {
   std::vector<std::string> m_supportedFormat_str;
   std::vector<ASI_IMG_TYPE> m_supportedFormat;
   std::vector<std::string> m_supportedBin;
+  uint8_t BinNumber = 1;
 
  public:
   std::vector<ASI_CONTROL_CAPS> mControlCaps;
