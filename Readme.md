@@ -24,6 +24,9 @@ cmake ../ -DIMMVISION_FETCH_OPENCV=ON -DIMGUI_BUNDLE_WITH_SDL=ON
 ```
 
 If i am missing any prerequisite libraries, please let me know and i'll add it in.
+## Known Issue
+* Does not work well with 16-bit captures.
+
 ## Acknowledgement
 
 This manual uses some great libraries, which are shown below.
