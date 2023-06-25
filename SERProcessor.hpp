@@ -440,9 +440,9 @@ class SERWriter : public SERBase {
     std::memcpy(header->sFileID, "LUCAM-RECORDER", sizeof(header->sFileID));
     header->uiLuID = 0;
     header->uiColorID = bay;
-    header->uiLittleEndian = is_sysbig_endian ? 1 : 0;
-    header->uiImageWidth = dim[0];
-    header->uiImageHeight = dim[1];
+    header->uiLittleEndian = is_sysbig_endian ? 0 : 1;
+    header->uiImageWidth = dim[1];
+    header->uiImageHeight = dim[0];
     header->uiPixelDepth = nbytes * SERGetNumberOfPlanes() * 8;
     header->uiFrameCount = 0;
     str[0].copy(&(header->sObserver[40]),
