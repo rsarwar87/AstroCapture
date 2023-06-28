@@ -264,8 +264,6 @@ class ASIBase : public CameraBase {
 
     timer.Start();
     escaped.Start();
-    is_still = false;
-    is_running = true;
     size_t count = 0;
     int waitMS = (mExposureCap->current_value) * 2 + 500;
     auto imgFormat = getImageFormat(mCurrentStillFormat);
@@ -280,6 +278,9 @@ class ASIBase : public CameraBase {
     streamingFrames.byte_channel = std::get<2>(imgFormat);
     streamingFrames.format = SER::BAYER::COLOR_RGB;
     streamingFrames.currentFormat = mCurrentStillFormat;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    is_still = false;
+    is_running = true;
 
     if (streamingFrames.ch == 1) {
       if (streamingFrames.ch)
