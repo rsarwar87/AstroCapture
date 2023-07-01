@@ -181,7 +181,7 @@ class CameraWindow {
       } else if (rcap->ControlType == ASI_EXPOSURE) {
         ImGui::SliderInt(rcap->Name,
                          reinterpret_cast<int *>(&rcap->current_value),
-                         rcap->MinValue / 1000, rcap->MaxValue / 1000);
+                         1, rcap->MaxValue / 100);
       } else {
         ImGui::SliderInt(rcap->Name,
                          reinterpret_cast<int *>(&rcap->current_value),
