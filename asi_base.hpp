@@ -89,13 +89,17 @@ class ASIBase : public CameraBase {
       if (!cap.IsWritable) continue;
       CONTROL_CAPS_CAST *rcap =
           reinterpret_cast<CONTROL_CAPS_CAST *>(&cap);
-      auto ret =
-          SetControlValue(rcap->ControlType, rcap->current_value,
-                          rcap->IsAutoSupported ? rcap->current_isauto : false);
+      ASI_ERROR_CODE ret = ASI_SUCCESS;
       if (cap.ControlType == ASI_EXPOSURE) {
         ret = SetControlValue(
             rcap->ControlType, rcap->current_value * 1000,
             rcap->IsAutoSupported ? rcap->current_isauto : false);
+      }
+      else
+      {
+      ret =
+          SetControlValue(rcap->ControlType, rcap->current_value,
+                          rcap->IsAutoSupported ? rcap->current_isauto : false);
       }
       if (ret != ASI_SUCCESS) {
         spdlog::critical("Failed to set value for {} ({}).", rcap->Name,
@@ -334,7 +338,7 @@ class ASIBase : public CameraBase {
       else
         get_new_buffer = true;
       if (targetFrame == nullptr) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(waitMS));
         continue;
       }
 
@@ -359,6 +363,7 @@ class ASIBase : public CameraBase {
         sort_rgb24(targetFrame, imgFormat);
 
       count++;
+      //std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
       // if (mCurrentVideoFormat == ASI_IMG_RGB24)
       //   for (uint32_t i = 0; i < totalBytes; i += 3)
