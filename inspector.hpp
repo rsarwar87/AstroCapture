@@ -114,7 +114,7 @@ class IVInspector {
     {
 
         auto& imageAndParams = mImageParams;
-        Image(imageAndParams.Label, img == nullptr ? imageAndParams.Image : *img,
+        Image(imageAndParams.Label, img == nullptr ? imageAndParams.Image : img->clone(),
               &imageAndParams.Params);
     }
 
