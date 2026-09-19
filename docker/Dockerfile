@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/London
 
 # ============================================================
-# System packages
+# System dependencies
 # ============================================================
 
 RUN apt-get update && apt-get install -y \
@@ -18,20 +18,26 @@ RUN apt-get update && apt-get install -y \
     sudo \
     \
     # --------------------------------------------------------
-    # SDL2
+    # GLFW / OpenGL
     # --------------------------------------------------------
-    libsdl2-dev \
-    \
-    # --------------------------------------------------------
-    # OpenGL / Mesa
-    # --------------------------------------------------------
+    libglfw3-dev \
+    libglfw3 \
     libgl1-mesa-dev \
+    libgl1-mesa-dri \
     libglu1-mesa-dev \
+    libglx-mesa0 \
     mesa-utils \
     \
     # --------------------------------------------------------
-    # X11 development libraries
+    # X11 / Xorg
     # --------------------------------------------------------
+    xserver-xorg \
+    xserver-xorg-core \
+    xserver-xorg-video-dummy \
+    x11-xserver-utils \
+    x11-utils \
+    xauth \
+    \
     libx11-dev \
     libxext-dev \
     libxrandr-dev \
@@ -40,27 +46,22 @@ RUN apt-get update && apt-get install -y \
     libxi-dev \
     libxfixes-dev \
     libxxf86vm-dev \
+    libxrender-dev \
+    libxdamage-dev \
+    libxcomposite-dev \
     \
     # --------------------------------------------------------
-    # X11 virtual display
-    # --------------------------------------------------------
-    xvfb \
-    \
-    # --------------------------------------------------------
-    # XFCE desktop
+    # Desktop
     # --------------------------------------------------------
     xfce4 \
     xfce4-terminal \
+    dbus \
     dbus-x11 \
     \
     # --------------------------------------------------------
-    # VNC
+    # VNC / browser VNC
     # --------------------------------------------------------
     x11vnc \
-    \
-    # --------------------------------------------------------
-    # noVNC
-    # --------------------------------------------------------
     novnc \
     websockify \
     \
@@ -71,7 +72,7 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     \
     # --------------------------------------------------------
-    # OpenCV runtime/build dependencies
+    # OpenCV
     # --------------------------------------------------------
     libgtk-3-dev \
     libjpeg-dev \
@@ -84,7 +85,7 @@ RUN apt-get update && apt-get install -y \
     libv4l-dev \
     \
     # --------------------------------------------------------
-    # libusb / udev
+    # USB / udev
     # --------------------------------------------------------
     libusb-1.0-0-dev \
     libudev-dev \
@@ -92,48 +93,40 @@ RUN apt-get update && apt-get install -y \
     # --------------------------------------------------------
     # Misc
     # --------------------------------------------------------
-    nano \
-    vim \
+    dbus \
     && rm -rf /var/lib/apt/lists/*
 
-
 # ============================================================
-# Create application user
+# Application user
+#
+# Ubuntu 24.04 already has GID 1000, so use 1001.
 # ============================================================
 
 ARG USERNAME=app
-ARG UID=1000
-ARG GID=1000
+ARG UID=1001
+ARG GID=1001
 
-RUN if getent group ${GID} >/dev/null; then \
-        EXISTING_GROUP=$(getent group ${GID} | cut -d: -f1); \
-        echo "GID ${GID} already exists as ${EXISTING_GROUP}"; \
-        groupmod -n ${USERNAME} ${EXISTING_GROUP} 2>/dev/null || true; \
-    else \
-        groupadd --gid ${GID} ${USERNAME}; \
-    fi \
-    && if getent passwd ${UID} >/dev/null; then \
-        EXISTING_USER=$(getent passwd ${UID} | cut -d: -f1); \
-        echo "UID ${UID} already exists as ${EXISTING_USER}"; \
-        usermod -l ${USERNAME} ${EXISTING_USER} 2>/dev/null || true; \
-    else \
-        useradd \
-            --uid ${UID} \
-            --gid ${GID} \
-            --create-home \
-            --shell /bin/bash \
-            ${USERNAME}; \
-    fi \
-    && mkdir -p /home/${USERNAME} \
-    && chown -R ${UID}:${GID} /home/${USERNAME} \
+RUN groupadd \
+        --gid ${GID} \
+        ${USERNAME} \
+    && useradd \
+        --uid ${UID} \
+        --gid ${GID} \
+        --create-home \
+        --shell /bin/bash \
+        ${USERNAME} \
     && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" \
         > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME}
 
+# ============================================================
+# Xorg dummy configuration
+# ============================================================
 
+COPY docker/xorg.conf /etc/X11/xorg.conf
 
 # ============================================================
-# Application source
+# Application
 # ============================================================
 
 WORKDIR /workspace
@@ -142,11 +135,9 @@ COPY . /workspace
 
 RUN chown -R ${USERNAME}:${USERNAME} /workspace
 
-
 # ============================================================
-# Build application
+# Build libasi
 # ============================================================
-
 
 WORKDIR /workspace/external/libasi
 
@@ -154,10 +145,15 @@ RUN rm -rf build \
     && mkdir build \
     && cd build \
     && cmake .. \
-    && make  install -j$(nproc)
+    && make -j$(nproc) \
+    && make install
 
+# ============================================================
+# Build AstroCapture
+# ============================================================
 
 USER ${USERNAME}
+
 WORKDIR /workspace
 
 RUN rm -rf build \
@@ -165,15 +161,15 @@ RUN rm -rf build \
     && cd build \
     && cmake .. \
         -DHELLOIMGUI_DOWNLOAD_FREETYPE_IF_NEEDED=ON \
-        -DHELLOIMGUI_USE_SDL2=ON \
+        -DHELLOIMGUI_USE_SDL2=OFF \
+        -DHELLOIMGUI_USE_GLFW3=ON \
         -DHELLOIMGUI_HAS_OPENGL3=ON \
         -DIMMVISION_FETCH_OPENCV=ON \
         -DIMMVISION_FETCH_OPENCV_FULL=OFF \
     && cmake --build . -j$(nproc)
 
-
 # ============================================================
-# Runtime configuration
+# Runtime
 # ============================================================
 
 USER root
@@ -182,25 +178,24 @@ COPY docker/start.sh /start.sh
 
 RUN chmod +x /start.sh
 
-
 # ============================================================
-# Environment
+# Runtime environment
 # ============================================================
 
 ENV DISPLAY=:1
-ENV LIBGL_ALWAYS_SOFTWARE=1
 ENV XDG_RUNTIME_DIR=/tmp/runtime-app
 
+# ------------------------------------------------------------
+# GLFW
+#
+# GLFW will use X11 because the container is running Xorg.
+# ------------------------------------------------------------
 
-# ============================================================
-# VNC / noVNC
-# ============================================================
+ENV LIBGL_ALWAYS_SOFTWARE=1
+
+# Explicitly prevent Wayland from being selected.
+ENV WAYLAND_DISPLAY=
 
 EXPOSE 6080
-
-
-# ============================================================
-# Start
-# ============================================================
 
 CMD ["/start.sh"]
