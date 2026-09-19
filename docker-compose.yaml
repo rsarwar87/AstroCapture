@@ -1,0 +1,43 @@
+services:
+  astrocapture:
+    container_name: astrocapture
+
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+
+    image: astrocapture:latest
+
+    restart: unless-stopped
+
+    ports:
+      - "6080:6080"
+
+    environment:
+      DISPLAY: ":1"
+      LIBGL_ALWAYS_SOFTWARE: "0"
+      XDG_RUNTIME_DIR: "/tmp/runtime-app"
+      XDG_SESSION_TYPE: "x11"
+      GDK_BACKEND: "x11"
+      QT_QPA_PLATFORM: "xcb"
+
+    volumes:
+      - ./docker/xorg.conf:/etc/X11/xorg.conf:ro
+    # Required if you eventually want the ZWO camera
+    # to be accessible from inside the container.
+    devices:
+    #  - /dev/dri/card0:/dev/dri/card0
+      - /dev/dri:/dev/dri/
+      - /dev/bus/usb:/dev/bus/usb
+
+    group_add:
+      - video
+      - render
+
+    shm_size: "2gb"
+
+    security_opt:
+      - seccomp=unconfined
+
+    stdin_open: true
+    tty: true
