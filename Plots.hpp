@@ -85,16 +85,17 @@ class PlotWidget {
                  float max_v, const ImVec4& col,
                  const ImVec2& size) {
     ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(0, 0));
-    if (ImPlot::BeginPlot(id, size,
-                          ImPlotFlags_CanvasOnly | ImPlotFlags_NoChild)) {
+  
+    if (ImPlot::BeginPlot(id, size, ImPlotFlags_CanvasOnly)) {
       ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoDecorations,
                         ImPlotAxisFlags_NoDecorations);
       ImPlot::SetupAxesLimits(0, count - 1, min_v, max_v, ImGuiCond_Always);
-      ImPlot::SetNextLineStyle(col);
-      ImPlot::SetNextFillStyle(col, 0.25);
-      ImPlot::PlotLine(id, values, count, 1, 0, ImPlotLineFlags_Shaded, 0);
+  
+      ImPlot::PlotLine(id, values, count, 1.0, 0.0);
+  
       ImPlot::EndPlot();
     }
+  
     ImPlot::PopStyleVar();
   }
   ProcessInfo process;
