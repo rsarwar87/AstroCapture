@@ -35,8 +35,6 @@ See also a related demo for
 * [ImmVision](https://traineq.org/ImGuiBundle/emscripten/bin/demo_immvision_launcher.html).
 )";
         ImGuiMd::Render(help.c_str());
-        if (isVisible != nullptr && ImGui::Button(ICON_FA_THUMBS_UP " Got it"))
-            *isVisible = false;
     }
 };
 

@@ -26,8 +26,6 @@ For full speed download, a PCIe 2.0 NVMe is needed, these include Rock 3A and Ro
 [I'd love to read your feedback!](https://github.com/rsarwar87/AstroCapture/issues)
 )";
         ImGuiMd::Render(help.c_str());
-        if (isVisible != nullptr && ImGui::Button(ICON_FA_THUMBS_UP " Got it"))
-            *isVisible = false;
     }
 };
 

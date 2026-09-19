@@ -63,7 +63,7 @@ class IVInspector {
         bool isColorOrderBGR = true
         ) {
     ImageParams params;
-    params.IsColorOrderBGR = isColorOrderBGR;
+    ImmVision::UseBgrColorOrder();
     params.ZoomKey = zoomKey;
     params.ColormapKey = colormapKey;
     params.ShowOptionsPanel = true;

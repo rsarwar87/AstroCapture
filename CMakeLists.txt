@@ -23,16 +23,17 @@ FetchContent_MakeAvailable(imgui_bundle)
 
 # Make cmake function `imgui_bundle_add_app` available
 list(APPEND CMAKE_MODULE_PATH ${IMGUIBUNDLE_CMAKE_PATH})
-include(imgui_bundle_add_app)
 
 # Uncomment the next line if you which to also automatically fetch and compile OpenCV for immvision support
-set(IMGUI_BUNDLE_WITH_SDL ON CACHE STRING "" FORCE)
-set(HELLOIMGUI_USE_SDL_OPENGL3 OFF CACHE STRING "" FORCE)
-set(IMGUI_BUNDLE_WITH_SDL OFF CACHE STRING "" FORCE)
-set(HELLOIMGUI_USE_SDL_OPENGL3 OFF CACHE STRING "" FORCE)
-set(IMGUI_BUNDLE_FETCH_OPENCV ON CACHE STRING "" FORCE)
-set(IMMVISION_FETCH_OPENCV_FULL OFF CACHE STRING "" FORCE)
-set(IMMVISION_FETCH_OPENCV ON CACHE STRING "" FORCE)
+# HelloImGui backend
+set(HELLOIMGUI_USE_SDL2 ON CACHE BOOL "" FORCE)
+set(HELLOIMGUI_HAS_OPENGL3 ON CACHE BOOL "" FORCE)
+
+# ImmVision / OpenCV
+set(IMGUI_BUNDLE_FETCH_OPENCV ON CACHE BOOL "" FORCE)
+set(IMMVISION_FETCH_OPENCV_FULL OFF CACHE BOOL "" FORCE)
+set(IMMVISION_FETCH_OPENCV ON CACHE BOOL "" FORCE)
+
 
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_module/")
 include(GNUInstallDirs)
@@ -55,6 +56,11 @@ add_subdirectory(external/spdlog)
 #    libavutil
 #)
 
+find_package(OpenCV REQUIRED COMPONENTS
+    core
+    imgcodecs
+    imgproc
+)
 #ADD_LIBRARY(libudev SHARED IMPORTED)
 #SET_TARGET_PROPERTIES(libudev PROPERTIES IMPORTED_LOCATION /usr/./lib/x86_64-linux-gnu/libudev.so)
 #ADD_LIBRARY(libusb STATIC IMPORTED)
@@ -77,7 +83,14 @@ FILE(GLOB sources_imgui_astrocapture
     )
 imgui_bundle_add_app(astrocapture ${sources_imgui_astrocapture})
 #target_link_libraries(astrocapture PRIVATE ASICamera spdlog fmt::fmt udev usb-1.0 libopencv_core libopencv_gapi libopencv_videoio PkgConfig::LIBAV)
-target_link_libraries(astrocapture PRIVATE ASICamera spdlog fmt::fmt udev usb-1.0 )
+target_link_libraries(astrocapture PRIVATE
+    ASICamera
+    spdlog
+    fmt::fmt
+    udev
+    usb-1.0
+    ${OpenCV_LIBS}
+)
 
 # Now you can build your app with
 #     mkdir build && cd build && cmake .. && cmake --build .

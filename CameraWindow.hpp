@@ -75,7 +75,7 @@ class CameraWindow {
         ImGui::EndDisabled();
       switch (cameraState) {
         case CameraState::Disconnected:
-          if (ImGui::Button(ICON_FA_LINK " Connect")) {
+          if (ImGui::Button( " Connect")) {
             if (pCamera.get() == nullptr) {
               HelloImGui::Log(HelloImGui::LogLevel::Error,
                               "No Camera was found");
@@ -107,7 +107,7 @@ class CameraWindow {
           }
           break;
         case CameraState::Connected:
-          if (ImGui::Button(ICON_FA_STOP_CIRCLE " Disconnect")) {
+          if (ImGui::Button(" Disconnect")) {
             pCamera->Disconnect();
             // camera.reset();
             cameraState = CameraState::Disconnected;
@@ -119,7 +119,7 @@ class CameraWindow {
           break;
         case CameraState::Running:
           ImGui::BeginDisabled();
-          ImGui::Text(ICON_FA_ROCKET " Acquiring");
+          ImGui::Text(" Acquiring");
           ImGui::EndDisabled();
           if (!pCamera->is_running) cameraState = CameraState::Connected;
           break;
@@ -141,7 +141,7 @@ class CameraWindow {
         guiResolution();
     }
     if (pCamera->is_connected) {
-      if (ImGui::CollapsingHeader(ICON_FA_WRENCH "Configuration",
+      if (ImGui::CollapsingHeader("Configuration",
                                   ImGuiTreeNodeFlags_DefaultOpen))
         guiAcquisition();
     }
@@ -199,13 +199,13 @@ class CameraWindow {
     // const char **items_fmt = reinterpret_cast<const char
     // **>(camera->m_supportedFormat_str.data()) ;
     if (pCamera->is_connected) {
-      if (ImGui::Button(ICON_FA_THUMBS_UP " Apply Settings")) {
+      if (ImGui::Button(" Apply Settings")) {
         if (!pCamera->UpdateControls())
           HelloImGui::Log(HelloImGui::LogLevel::Error,
                           "Failed to update settings.");
       }
       ImGui::SameLine();
-      if (ImGui::Button(ICON_FA_THUMBS_DOWN " Revert Settings")) {
+      if (ImGui::Button(" Revert Settings")) {
         if (!pCamera->RetrieveControls())
           HelloImGui::Log(HelloImGui::LogLevel::Error,
                           "Failed to update settings.");
@@ -264,7 +264,7 @@ class CameraWindow {
                      &(pCamera->getStreamingFramePtr()->selectedFilename[0]),
                      512);
     ImGui::SameLine();
-    if (ImGui::Button(ICON_FA_SAVE "...")) {
+    if (ImGui::Button("...")) {
       ifd::FileDialog::Instance().Open("DirectoryOpenDialog",
                                        "Open a directory", "");
     }
@@ -301,20 +301,20 @@ class CameraWindow {
       }
     }
     if (!pCamera->is_running) {
-      if (ImGui::Button(ICON_FA_TV " Capture Frame")) {
+      if (ImGui::Button(" Capture Frame")) {
         pCamera->DoCaptureHelper();
       }
       ImGui::SameLine();
-      if (ImGui::Button(ICON_FA_ROCKET " Capture Video")) {
+      if (ImGui::Button(" Capture Video")) {
         pCamera->DoVCaptureHelper(mSysMem);
       }
     } else {
-      if (ImGui::Button(ICON_FA_STOP " Abort")) {
+      if (ImGui::Button(" Abort")) {
         pCamera->AbortExposure();
       }
       if (pCamera->getStreamingFramePtr()->fSpace > 1) {
         ImGui::SameLine();
-        ImGui::Checkbox(ICON_FA_STOP " Record",
+        ImGui::Checkbox( " Record",
                         &(pCamera->getStreamingFramePtr()->do_record));
       }
     }
