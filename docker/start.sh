@@ -13,7 +13,6 @@ export GDK_BACKEND=x11
 export QT_QPA_PLATFORM=xcb
 export LIBGL_ALWAYS_SOFTWARE=1
 
-# Explicitly remove Wayland variables.
 unset WAYLAND_DISPLAY
 unset WAYLAND_SOCKET
 
@@ -32,12 +31,16 @@ echo "Cleaning up stale processes..."
 pkill -TERM -x Xorg 2>/dev/null || true
 pkill -TERM -x x11vnc 2>/dev/null || true
 pkill -TERM -x websockify 2>/dev/null || true
+pkill -TERM -x openbox 2>/dev/null || true
+pkill -TERM -x wmctrl 2>/dev/null || true
 
 sleep 1
 
 pkill -KILL -x Xorg 2>/dev/null || true
 pkill -KILL -x x11vnc 2>/dev/null || true
 pkill -KILL -x websockify 2>/dev/null || true
+pkill -KILL -x openbox 2>/dev/null || true
+pkill -KILL -x wmctrl 2>/dev/null || true
 
 rm -f /tmp/.X1-lock
 rm -rf /tmp/.X11-unix/X1
@@ -108,22 +111,6 @@ echo "Xorg started successfully."
 
 
 ###############################################################################
-# Verify X11 environment
-###############################################################################
-
-echo
-echo "=========================================="
-echo "X11 environment"
-echo "=========================================="
-
-echo "DISPLAY          = ${DISPLAY}"
-echo "XDG_SESSION_TYPE = ${XDG_SESSION_TYPE}"
-echo "XDG_RUNTIME_DIR  = ${XDG_RUNTIME_DIR}"
-echo "GDK_BACKEND      = ${GDK_BACKEND}"
-echo "WAYLAND_DISPLAY  = ${WAYLAND_DISPLAY:-<unset>}"
-
-
-###############################################################################
 # OpenGL
 ###############################################################################
 
@@ -133,34 +120,6 @@ echo "OpenGL information"
 echo "=========================================="
 
 DISPLAY=:1 glxinfo -B || true
-
-
-###############################################################################
-# XFCE
-###############################################################################
-
-echo
-echo "=========================================="
-echo "Starting XFCE"
-echo "=========================================="
-
-su - app -c '
-    export DISPLAY=:1
-    export XDG_RUNTIME_DIR=/tmp/runtime-app
-    export XDG_SESSION_TYPE=x11
-    export GDK_BACKEND=x11
-    export QT_QPA_PLATFORM=xcb
-    export LIBGL_ALWAYS_SOFTWARE=1
-
-    unset WAYLAND_DISPLAY
-    unset WAYLAND_SOCKET
-
-    dbus-launch --exit-with-session startxfce4
-' > /tmp/xfce.log 2>&1 &
-
-XFCE_PID=$!
-
-sleep 5
 
 
 ###############################################################################
@@ -174,16 +133,6 @@ echo "=========================================="
 
 echo "x11vnc version:"
 x11vnc -version 2>&1 | head -5 || true
-
-echo
-echo "Starting x11vnc against Xorg :1..."
-
-# IMPORTANT:
-#
-# Use env -i so x11vnc receives no Wayland/session environment
-# from Docker, XFCE, DBus, or the host.
-#
-# Only the minimum environment required by x11vnc is supplied.
 
 env -i \
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
@@ -297,7 +246,7 @@ echo "noVNC is listening on 0.0.0.0:6080"
 
 
 ###############################################################################
-# AstroCapture
+# Start AstroCapture
 ###############################################################################
 
 echo
@@ -325,6 +274,71 @@ APP_PID=$!
 
 
 ###############################################################################
+# Wait for AstroCapture window
+###############################################################################
+
+echo
+echo "Waiting for AstroCapture window..."
+
+WINDOW_ID=""
+
+for i in $(seq 1 60); do
+
+    WINDOW_ID=$(DISPLAY=:1 xdotool search \
+        --onlyvisible \
+        --name "AstroCapture" \
+        2>/dev/null | head -1 || true)
+
+    if [ -n "${WINDOW_ID}" ]; then
+        break
+    fi
+
+    # Fallback: find the first application window.
+    WINDOW_ID=$(DISPLAY=:1 xdotool search \
+        --onlyvisible \
+        --name "." \
+        2>/dev/null | head -1 || true)
+
+    if [ -n "${WINDOW_ID}" ]; then
+        break
+    fi
+
+    sleep 0.5
+done
+
+
+###############################################################################
+# Maximise AstroCapture
+###############################################################################
+
+if [ -n "${WINDOW_ID}" ]; then
+
+    echo "AstroCapture window found: ${WINDOW_ID}"
+
+    DISPLAY=:1 xdotool windowactivate "${WINDOW_ID}" || true
+
+    DISPLAY=:1 xdotool key \
+        --window "${WINDOW_ID}" \
+        super+up || true
+
+    DISPLAY=:1 xdotool windowmap "${WINDOW_ID}" || true
+
+    DISPLAY=:1 xdotool windowsize \
+        "${WINDOW_ID}" \
+        1920 1080 || true
+
+    DISPLAY=:1 xdotool windowmove \
+        "${WINDOW_ID}" \
+        0 0 || true
+
+else
+
+    echo "WARNING: Could not find AstroCapture window."
+
+fi
+
+
+###############################################################################
 # Status
 ###############################################################################
 
@@ -333,31 +347,35 @@ echo "=========================================="
 echo "AstroCapture is running"
 echo "=========================================="
 echo
-echo "Browser VNC:"
-echo
-echo "    http://localhost:6080/vnc.html"
-echo
-echo "VNC server:"
-echo
-echo "    127.0.0.1:5900"
-echo
 echo "Display:"
 echo
 echo "    DISPLAY=:1"
+echo
+echo "Resolution:"
+echo
+echo "    1920x1080"
 echo
 echo "Renderer:"
 echo
 echo "    Mesa llvmpipe"
 echo
-echo "Session:"
+echo "Desktop:"
 echo
-echo "    X11"
+echo "    None"
+echo
+echo "Window manager:"
+echo
+echo "    None"
+echo
+echo "Browser VNC:"
+echo
+echo "    http://localhost:6080/vnc.html"
 echo
 echo "=========================================="
 
 
 ###############################################################################
-# Wait for AstroCapture
+# Keep container alive while AstroCapture runs
 ###############################################################################
 
 wait "${APP_PID}"

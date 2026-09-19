@@ -177,8 +177,8 @@ int main(int, char **) {
     HelloImGui::RunnerParams runnerParams;
 
     runnerParams.appWindowParams.windowTitle = "AstroCapture";
-    runnerParams.appWindowParams.windowGeometry.size = {800, 600};
-    runnerParams.appWindowParams.restorePreviousGeometry = true;
+    runnerParams.appWindowParams.windowGeometry.size = {1920, 1080};
+    runnerParams.appWindowParams.restorePreviousGeometry = false;
 
     //
     // Status bar
@@ -226,7 +226,7 @@ int main(int, char **) {
     // In this demo, we also demonstrate multiple viewports.
     // you can drag windows outside out the main window in order to put their
     // content into new native windows
-    runnerParams.imGuiWindowParams.enableViewports = true;
+    runnerParams.imGuiWindowParams.enableViewports = false;
 
     // Then, add a space named "BottomSpace" whose height is 25% of the app
     // height. This will split the preexisting default dockspace "MainDockSpace"
